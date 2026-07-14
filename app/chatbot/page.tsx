@@ -19,7 +19,7 @@ export default function ChatbotPage() {
   // --- Vercel AI SDK v4 Integration ---
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: '/api/chat'
+      api: `/api/chat?sessionId=${activeSessionId || ''}`
     }),
     onFinish: (event) => console.log('[CLIENT] ✅ Stream finished.', event.message?.id),
     onError: (err) => console.error('[CLIENT] ❌ SDK Error:', err),

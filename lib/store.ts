@@ -19,7 +19,7 @@ interface BioArcStore {
   updateFSM: () => void;
   toggleSidebar: () => void;
   setActiveSession: (id: string | null) => void;
-  createNewSession: () => void;
+  createNewSession: () => Promise<void>;
   sendMessage: (content: string) => void;
   toggleFastMode: () => void;
   addMaintenanceLog: (message: string, severity: 'nominal' | 'warning' | 'critical') => void;
@@ -43,18 +43,26 @@ export const useStore = create<BioArcStore>((set) => ({
   updateFSM: () => set({ fsm: generateMockFSM() }),
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
   setActiveSession: (id) => set({ activeSessionId: id }),
-  createNewSession: () => set((state) => {
-    const newSession: ChatSession = {
-      id: `session-${Date.now()}`,
-      title: "New AI Session",
-      date: "Just now",
-      messages: [{ id: "welcome", role: "assistant", content: "Hello. I am BioArc AI. How can I assist you with the bioreactor telemetry today?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]
-    };
-    return {
-      chatHistory: [newSession, ...state.chatHistory],
-      activeSessionId: newSession.id
-    };
-  }),
+  createNewSession: async () => {
+    try {
+      const res = await fetch('/api/chat/session', { method: 'POST' });
+      const data = await res.json();
+      if (data.session) {
+        const newSession: ChatSession = {
+          id: data.session.id,
+          title: data.session.title,
+          date: new Date(data.session.createdAt).toLocaleDateString(),
+          messages: [{ id: "welcome", role: "assistant", content: "Hello. I am BioArc AI. How can I assist you with the bioreactor telemetry today?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]
+        };
+        set((state) => ({
+          chatHistory: [newSession, ...state.chatHistory],
+          activeSessionId: newSession.id
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to create session in DB', e);
+    }
+  },
   sendMessage: (content) => set((state) => {
     if (!state.activeSessionId) return state;
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

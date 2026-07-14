@@ -1,7 +1,7 @@
 // app/api/chat/route.ts
 // This file will be used to handle the chat requests from the frontend
 
-import { streamText, ModelMessage } from 'ai';
+import { streamText, ModelMessage, isStepCount } from 'ai';
 import { google } from '@ai-sdk/google';
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/db';
@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
   console.time(`[SERVER:${requestId}] Total_Request_Time`);
   try {
     const body = (await req.json()) as ChatRequestBody;
+    const querySessionId = req.nextUrl.searchParams.get('sessionId');
     let { messages, sessionId } = body;
+    
+    // Fallback to query parameter if body doesn't contain it
+    if (!sessionId && querySessionId) {
+      sessionId = querySessionId;
+    }
 
     console.log(`[SERVER:${requestId}] Incoming messages:`, JSON.stringify(messages));
 
@@ -69,11 +75,10 @@ export async function POST(req: NextRequest) {
     console.log(`[SERVER:${requestId}] 🧠 Calling Gemini API with gemini-3.1-flash-lite`);
     const result = streamText({
       model: google('gemini-3.1-flash-lite'),
-      system: "You are the BioArc Reactor AI. You have access to tools, use them ONLY if explicitly requested by the user. Otherwise, respond directly to the user.",
+      system: "You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware and read telemetry. IMPORTANT: If the user asks general questions about the BioArc project, its creators, goals, or how it works, you MUST execute a two-step search: 1) Call getKnowledgeBaseTopics to see what keywords exist. 2) Call searchKnowledgeBase using the EXACT keywords you found in step 1. Do not guess keywords. Only use tools if explicitly necessary.",
       messages,
       tools: bioarcTools,
-      // @ts-expect-error - required for tool looping in this SDK version
-      maxSteps: 2,
+      stopWhen: isStepCount(5), // Increased from 3 to 5 to allow multi-step tool use
       onFinish: async (event) => {
         try {
           console.log(`[SERVER:${requestId}] 🏁 AI Stream finished. Starting background DB save.`);

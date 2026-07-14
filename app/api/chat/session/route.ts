@@ -1,6 +1,18 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+export async function POST(req: NextRequest) {
+  try {
+    const newSession = await prisma.chatSession.create({
+      data: { title: "New AI Session" }
+    });
+    return NextResponse.json({ session: newSession });
+  } catch (error) {
+    console.error('Failed to create session:', error);
+    return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
