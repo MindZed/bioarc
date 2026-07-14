@@ -1,3 +1,6 @@
+// components/layout/ClientLayout.tsx
+// This file will be used to handle the layout of the application
+
 "use client";
 
 import { useStore } from "@/lib/store";

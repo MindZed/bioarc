@@ -1,23 +1,76 @@
+// app/chatbot/page.tsx
+// This file will be used to create the chatbot page
+
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
-import { Send, MessageSquarePlus, BrainCircuit, Zap, Bot, User, Activity } from 'lucide-react';
+import { Send, MessageSquarePlus, BrainCircuit, Zap, Bot, User, Activity, Loader2, Trash2 } from 'lucide-react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport, UIMessage } from 'ai';
 
 export default function ChatbotPage() {
-  const { 
-    chatHistory, activeSessionId, fastMode, 
-    setActiveSession, createNewSession, sendMessage, toggleFastMode, telemetry, fsm 
+  const {
+    chatHistory, activeSessionId, fastMode,
+    setActiveSession, createNewSession, toggleFastMode, telemetry, fsm, setChatHistory, deleteSession
   } = useStore();
+
+  // --- Vercel AI SDK v4 Integration ---
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat'
+    }),
+    onFinish: (event) => console.log('[CLIENT] ✅ Stream finished.', event.message?.id),
+    onError: (err) => console.error('[CLIENT] ❌ SDK Error:', err),
+  });
+  const isLoading = status === 'submitted' || status === 'streaming';
+  // ------------------------------------
 
   const [input, setInput] = useState('');
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Fetch live chat history from Prisma
+  useEffect(() => {
+    fetch('/api/chat/history')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.sessions) {
+          // Format timestamps to match existing UI
+          const formattedSessions = data.sessions.map((s: any) => ({
+            id: s.id,
+            title: s.title,
+            date: new Date(s.createdAt).toLocaleDateString(),
+            messages: s.messages,
+          }));
+          setChatHistory(formattedSessions);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch history:', err));
+  }, [setChatHistory]);
+
+  // Hydrate Vercel AI SDK ONLY when switching sessions, not when history updates in the background
+  useEffect(() => {
+    if (activeSessionId) {
+      const session = chatHistory.find((s) => s.id === activeSessionId);
+      if (session && session.messages) {
+        const formattedMessages = session.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          parts: [{ type: 'text', text: msg.content }], // Ensures rendering works perfectly with existing UI code
+        }));
+        setMessages(formattedMessages as any); // Type cast necessary here due to SDK mapping differences
+      } else {
+        setMessages([]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId, setMessages]);
+
   useEffect(() => {
     setMounted(true);
-    // If no active session, select the first one automatically
     if (chatHistory.length > 0 && !activeSessionId) {
       setActiveSession(chatHistory[0].id);
     }
@@ -25,7 +78,7 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory, activeSessionId]);
+  }, [messages, activeSessionId]);
 
   if (!mounted) return null;
 
@@ -33,15 +86,29 @@ export default function ChatbotPage() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !activeSessionId) return;
-    sendMessage(input);
+    if (!input.trim() || !activeSessionId || isLoading) return;
+
+    // Trigger the real AI API and explicitly pass the activeSessionId to prevent duplicate sessions
+    console.log('[CLIENT] 🚀 Submit triggered. Input:', input);
+    sendMessage({ text: input }, { body: { sessionId: activeSessionId } });
+    console.log('[CLIENT] 📡 Append called. Waiting for network...');
     setInput('');
+  };
+
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/chat/session?sessionId=${id}`, { method: 'DELETE' });
+      deleteSession(id);
+    } catch (error) {
+      console.error('Failed to delete session', error);
+    }
   };
 
   return (
     <div className="flex-1 flex overflow-hidden p-6 gap-6 min-h-0 h-full">
       {/* LEFT COLUMN: CHAT CONSOLE */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         className="flex-1 flex flex-col min-h-0 relative overflow-hidden rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] group"
@@ -49,7 +116,7 @@ export default function ChatbotPage() {
       >
         {/* Dark translucent overlay */}
         <div className="absolute inset-0 bg-black/80 z-0 pointer-events-none" />
-        
+
         {/* Chat Header */}
         <div className="px-6 py-4 flex items-center justify-between sticky top-0 bg-black/40 backdrop-blur-xl z-10">
           <div className="flex items-center gap-3">
@@ -70,10 +137,26 @@ export default function ChatbotPage() {
             </div>
           ) : (
             <AnimatePresence initial={false}>
-              {activeSession.messages.map((msg, idx) => {
+              {/* Map over LIVE AI SDK messages instead of mocked store messages */}
+              {messages.map((msg: UIMessage, idx) => {
                 const isUser = msg.role === 'user';
+                console.log('[DEBUG_RENDER] msg:', JSON.stringify(msg));
+                // Parse the v4 message payload text or fallback to string content
+                const textContent = (msg as any).content || (msg.parts?.map((part: any) =>
+                  part.type === 'text' ? part.text : ''
+                ).join('')) || '';
+
+                // 🔥 VERCEL SDK v6 FIX: Extract tool invocations directly from the parts array
+                const tools = msg.parts
+                  ? msg.parts
+                    .filter((part: any) => part.type === 'tool-invocation')
+                    .map((part: any) => part.toolInvocation)
+                  : (msg as any).toolInvocations || [];
+
+                if (!textContent.trim() && tools.length === 0) return null;
+
                 return (
-                  <motion.div 
+                  <motion.div
                     key={msg.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -83,7 +166,6 @@ export default function ChatbotPage() {
                     <div className="flex items-center gap-2 mb-1 px-1">
                       {isUser ? (
                         <>
-                          <span className="text-xs text-zinc-500">{msg.timestamp}</span>
                           <span className="text-sm font-medium text-emerald-400 font-satoshi">You</span>
                           <User className="w-4 h-4 text-emerald-400" />
                         </>
@@ -91,18 +173,28 @@ export default function ChatbotPage() {
                         <>
                           <Bot className="w-4 h-4 text-zinc-400" />
                           <span className="text-sm font-medium text-zinc-400 font-satoshi">BioArc AI</span>
-                          <span className="text-xs text-zinc-500">{msg.timestamp}</span>
                         </>
                       )}
                     </div>
-                    
-                    <div className={`px-5 py-3 rounded-2xl whitespace-pre-wrap font-satoshi text-[15px] leading-relaxed backdrop-blur-md ${
-                      isUser 
-                        ? 'bg-emerald-500/10 text-emerald-50 rounded-tr-sm shadow-[0_0_20px_rgba(16,185,129,0.05)]' 
+
+                    {!isUser && tools.length > 0 && (
+                      <div className="flex flex-col gap-2 mb-2 w-full">
+                        {tools.map((tool: any) => (
+                          <div key={tool.toolCallId} className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md flex items-center gap-2 text-xs font-mono text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.1)] w-fit">
+                            <Activity className="w-3.5 h-3.5 animate-pulse" />
+                            System Action: {tool.toolName}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {textContent.trim() && (
+                      <div className={`px-5 py-3 rounded-2xl whitespace-pre-wrap font-satoshi text-[15px] leading-relaxed backdrop-blur-md ${isUser
+                        ? 'bg-emerald-500/10 text-emerald-50 rounded-tr-sm shadow-[0_0_20px_rgba(16,185,129,0.05)]'
                         : 'bg-white/[0.03] text-zinc-100 rounded-tl-sm shadow-lg'
-                    }`}>
-                      {msg.content}
-                    </div>
+                        }`}>
+                        {textContent}
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}
@@ -115,38 +207,37 @@ export default function ChatbotPage() {
         <div className="p-5 bg-gradient-to-t from-black via-black/80 to-transparent relative z-10">
           <form onSubmit={handleSend} className="relative flex items-center max-w-4xl mx-auto">
             {/* Mode Toggle Inside Input */}
-            <button 
+            <button
               type="button"
               onClick={toggleFastMode}
               disabled={!activeSession}
-              className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
-              }`}
+              className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
+                }`}
             >
               {fastMode ? <Zap className="w-3.5 h-3.5" /> : <BrainCircuit className="w-3.5 h-3.5" />}
               {fastMode ? 'FAST' : 'DEEP'}
             </button>
-            <input 
+            <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={activeSession ? "Command the bioreactor..." : "Start a session to begin..."}
-              disabled={!activeSession}
+              disabled={!activeSession || isLoading}
               className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-16 text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
             />
-            <button 
+            <button
               type="submit"
-              disabled={!input.trim() || !activeSession}
+              disabled={!input.trim() || !activeSession || isLoading}
               className="absolute right-2 p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105"
             >
-              <Send className="w-5 h-5" />
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
           </form>
         </div>
       </motion.div>
 
-      {/* RIGHT COLUMN: HISTORY SIDEBAR */}
-      <motion.div 
+      {/* RIGHT COLUMN: HISTORY SIDEBAR (Untouched) */}
+      <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         className="w-80 flex flex-col gap-6 min-h-0 shrink-0"
@@ -155,7 +246,7 @@ export default function ChatbotPage() {
         <div className="flex-1 flex flex-col min-h-0 relative">
           <div className="px-2 py-4 flex items-center justify-between z-10">
             <h3 className="font-satoshi font-semibold text-sm tracking-widest text-zinc-400 uppercase">Chat Sessions</h3>
-            <button 
+            <button
               onClick={createNewSession}
               className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-all"
               title="New Session"
@@ -163,32 +254,37 @@ export default function ChatbotPage() {
               <MessageSquarePlus className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto min-h-0 space-y-1 pr-2 custom-scrollbar">
             {chatHistory.map((session) => (
-              <button 
+              <button
                 key={session.id}
                 onClick={() => setActiveSession(session.id)}
-                className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex flex-col gap-1.5 group ${
-                  activeSessionId === session.id 
-                    ? 'bg-white/[0.04] shadow-sm' 
-                    : 'hover:bg-white/[0.02]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex flex-col gap-1.5 group relative ${activeSessionId === session.id
+                  ? 'bg-white/[0.04] shadow-sm'
+                  : 'hover:bg-white/[0.02]'
+                  }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <h4 className={`font-satoshi font-medium truncate text-[15px] ${activeSessionId === session.id ? 'text-emerald-400' : 'text-zinc-300 group-hover:text-white'}`}>
+                  <h4 className={`font-satoshi font-medium truncate text-[15px] pr-6 ${activeSessionId === session.id ? 'text-emerald-400' : 'text-zinc-300 group-hover:text-white'}`}>
                     {session.title}
                   </h4>
                   {activeSessionId === session.id && (
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                   )}
                 </div>
-                <p className="text-xs text-zinc-500 font-satoshi truncate leading-relaxed">
+                <p className="text-xs text-zinc-500 font-satoshi truncate leading-relaxed pr-6">
                   {session.messages[session.messages.length - 1]?.content || "Empty session"}
                 </p>
                 <p className="text-[10px] text-zinc-600 font-mono">
                   {session.date}
                 </p>
+                <div
+                  onClick={(e) => handleDeleteSession(session.id, e)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400/70 hover:text-red-400 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </div>
               </button>
             ))}
           </div>
@@ -199,7 +295,7 @@ export default function ChatbotPage() {
           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
             <Activity className="w-20 h-20 text-white" />
           </div>
-          
+
           <div className="flex items-center justify-between relative z-10">
             <h4 className="font-satoshi font-semibold text-zinc-400 text-xs tracking-widest uppercase">System Status</h4>
             <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">

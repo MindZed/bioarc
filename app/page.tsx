@@ -1,3 +1,6 @@
+// app/page.tsx
+// Dashboard page for the bioreactor
+
 "use client";
 
 import { useEffect, useState } from "react";

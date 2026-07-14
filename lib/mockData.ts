@@ -1,3 +1,6 @@
+// lib/mockData.ts
+// This file will be used to generate mock data for the frontend
+
 export interface TelemetryData {
   waterTemp: number;
   ambientTemp: number;

@@ -1,3 +1,6 @@
+// lib/store.ts
+// This file will be used to handle the state management of the application
+
 import { create } from 'zustand';
 import { TelemetryData, FSMState, ChatSession, SystemLog, HardwareLifespan, HistoricalDataPoint, generateMockTelemetry, generateMockFSM, generateMockChatHistory, generateMockMaintenanceData, generateMockMetricsData } from './mockData';
 
@@ -21,6 +24,8 @@ interface BioArcStore {
   toggleFastMode: () => void;
   addMaintenanceLog: (message: string, severity: 'nominal' | 'warning' | 'critical') => void;
   setSelectedTimeRange: (range: '7D' | '30D' | 'ALL') => void;
+  setChatHistory: (sessions: any[]) => void;
+  deleteSession: (id: string) => void;
 }
 
 export const useStore = create<BioArcStore>((set) => ({
@@ -91,5 +96,13 @@ export const useStore = create<BioArcStore>((set) => ({
   setSelectedTimeRange: (range) => set({ 
     selectedTimeRange: range, 
     metricsData: generateMockMetricsData(range === '7D' ? 7 : range === '30D' ? 30 : 90) 
+  }),
+  setChatHistory: (sessions) => set({ chatHistory: sessions }),
+  deleteSession: (id) => set((state) => {
+    const newHistory = state.chatHistory.filter(session => session.id !== id);
+    const newActiveSessionId = state.activeSessionId === id 
+      ? (newHistory.length > 0 ? newHistory[0].id : null) 
+      : state.activeSessionId;
+    return { chatHistory: newHistory, activeSessionId: newActiveSessionId };
   }),
 }));

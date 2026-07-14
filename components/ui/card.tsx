@@ -1,3 +1,6 @@
+// components/ui/card.tsx
+// This file will be used to create the card component
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

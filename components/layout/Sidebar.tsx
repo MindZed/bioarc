@@ -1,3 +1,6 @@
+// components/layout/Sidebar.tsx
+// This file will be used to handle the sidebar of the application
+
 "use client";
 
 import Link from "next/link";

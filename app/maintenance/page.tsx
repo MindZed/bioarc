@@ -1,3 +1,6 @@
+// app/maintenance/page.tsx
+// Maintenance page for the bioreactor
+
 "use client";
 
 import { useEffect, useState } from 'react';

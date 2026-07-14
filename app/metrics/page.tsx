@@ -1,3 +1,6 @@
+// app/metrics/page.tsx
+// Metrics page for the bioreactor
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
