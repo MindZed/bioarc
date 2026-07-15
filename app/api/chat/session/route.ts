@@ -47,6 +47,10 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Session ID and title are required' }, { status: 400 });
     }
 
+    if (typeof title !== 'string' || title.length > 200) {
+      return NextResponse.json({ error: 'Title is invalid or exceeds maximum length' }, { status: 400 });
+    }
+
     const updatedSession = await prisma.chatSession.update({
       where: { id: sessionId },
       data: { title: title },

@@ -17,6 +17,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Keyword and content are required' }, { status: 400 });
     }
 
+    if (typeof keyword !== 'string' || typeof content !== 'string' || keyword.length > 100 || content.length > 5000) {
+      return NextResponse.json({ error: 'Invalid input or length limits exceeded' }, { status: 400 });
+    }
+
     await prisma.projectContext.create({
       data: {
         keyword,

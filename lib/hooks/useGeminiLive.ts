@@ -19,7 +19,7 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | AudioWorkletNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
   const activeAudioNodesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -124,7 +124,7 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
       setStatus('connecting');
       setError(null);
 
-      const tokenRes = await fetch('/api/chat/live-token');
+      const tokenRes = await fetch('/api/chat/live-token', { headers: { 'X-BioArc-Client': 'true' } });
       if (!tokenRes.ok) throw new Error('Failed to fetch Gemini API token');
       const { token } = await tokenRes.json();
 
@@ -261,12 +261,13 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
             });
             mediaStreamRef.current = stream;
 
+            await audioContextRef.current.audioWorklet.addModule('/audio-capture-worklet.js');
             const source = audioContextRef.current.createMediaStreamSource(stream);
-            const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-            processorRef.current = processor;
+            const workletNode = new AudioWorkletNode(audioContextRef.current, 'audio-capture-processor');
+            processorRef.current = workletNode;
 
-            processor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
+            workletNode.port.onmessage = (e) => {
+              const inputData = e.data;
               
               // Calculate RMS volume for noise gate
               let sum = 0;
@@ -287,8 +288,8 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
               sendAudioChunk(base64);
             };
 
-            source.connect(processor);
-            processor.connect(audioContextRef.current.destination);
+            source.connect(workletNode);
+            workletNode.connect(audioContextRef.current.destination);
           }
 
           if (response.serverContent?.interrupted) {
@@ -312,7 +313,7 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
               try {
                 const res = await fetch('/api/tools/execute', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', 'X-BioArc-Client': 'true' },
                   body: JSON.stringify({ toolName: name, args })
                 });
                 const { result } = await res.json();

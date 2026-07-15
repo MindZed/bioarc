@@ -32,7 +32,7 @@ export const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ isOpen, onClose 
     setVoiceName(newVoice);
     disconnect();
     // Reconnect immediately with the override voice and ask it to greet
-    connect(true, newVoice); 
+    setTimeout(() => connect(true, newVoice), 300); 
   };
 
   const handleClose = () => {

@@ -33,7 +33,7 @@ export const useStore = create<BioArcStore>((set) => ({
   telemetry: generateMockTelemetry(),
   fsm: generateMockFSM(),
   isSidebarCollapsed: false,
-  chatHistory: generateMockChatHistory(),
+  chatHistory: [],
   activeSessionId: null,
   fastMode: true,
   maintenanceLogs: generateMockMaintenanceData().logs,
@@ -45,24 +45,7 @@ export const useStore = create<BioArcStore>((set) => ({
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
   setActiveSession: (id) => set({ activeSessionId: id }),
   createNewSession: async () => {
-    try {
-      const res = await fetch('/api/chat/session', { method: 'POST' });
-      const data = await res.json();
-      if (data.session) {
-        const newSession: ChatSession = {
-          id: data.session.id,
-          title: data.session.title,
-          date: new Date(data.session.createdAt).toLocaleDateString(),
-          messages: [{ id: "welcome", role: "assistant", content: "Hello. I am BioArc AI. How can I assist you with the bioreactor telemetry today?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]
-        };
-        set((state) => ({
-          chatHistory: [newSession, ...state.chatHistory],
-          activeSessionId: newSession.id
-        }));
-      }
-    } catch (e) {
-      console.error('Failed to create session in DB', e);
-    }
+    set({ activeSessionId: 'new' });
   },
   sendMessage: (content) => set((state) => {
     if (!state.activeSessionId) return state;

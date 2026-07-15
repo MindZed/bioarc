@@ -8,11 +8,27 @@ export async function POST(req: NextRequest) {
   try {
     const { toolName, args } = await req.json();
 
-    if (!toolName) {
-      return NextResponse.json({ error: 'Tool name is required' }, { status: 400 });
+    if (!toolName || typeof toolName !== 'string') {
+      return NextResponse.json({ error: 'Tool name is required and must be a string' }, { status: 400 });
+    }
+
+    const allowedTools = Object.keys(bioarcTools);
+    if (!allowedTools.includes(toolName)) {
+      return NextResponse.json({ error: `Tool ${toolName} is not allowed` }, { status: 403 });
     }
 
     const tool = bioarcTools[toolName as keyof typeof bioarcTools];
+
+    try {
+      const toolDef = tool as any;
+      if (toolDef.parameters && typeof toolDef.parameters.parse === 'function') {
+        toolDef.parameters.parse(args);
+      }
+
+    } catch (e: any) {
+      return NextResponse.json({ error: `Invalid tool arguments: ${e.message}` }, { status: 400 });
+    }
+
 
     if (!tool || !tool.execute) {
       return NextResponse.json({ error: `Tool ${toolName} not found or not executable` }, { status: 404 });

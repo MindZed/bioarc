@@ -10,6 +10,8 @@ import { Send, MessageSquarePlus, BrainCircuit, Zap, Bot, User, Activity, Loader
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage } from 'ai';
 import { VoiceChatModal } from '@/components/chatbot/VoiceChatModal';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function ChatbotPage() {
   const {
@@ -20,9 +22,26 @@ export default function ChatbotPage() {
   // --- Vercel AI SDK v4 Integration ---
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: `/api/chat?sessionId=${activeSessionId || ''}`
+      api: '/api/chat',
+      headers: { 'X-BioArc-Client': 'true' }
     }),
-    onFinish: (event) => console.log('[CLIENT] ✅ Stream finished.', event.message?.id),
+    onFinish: (event) => {
+      console.log('[CLIENT] ✅ Stream finished.', event.message?.id);
+      fetch('/api/chat/history', { headers: { 'X-BioArc-Client': 'true' } })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.sessions) {
+            const formattedSessions = data.sessions.map((s: any) => ({
+              id: s.id,
+              title: s.title,
+              date: new Date(s.createdAt).toLocaleDateString(),
+              messages: s.messages,
+            }));
+            setChatHistory(formattedSessions);
+          }
+        })
+        .catch((err) => console.error('Failed to fetch history:', err));
+    },
     onError: (err) => console.error('[CLIENT] ❌ SDK Error:', err),
   });
   const isLoading = status === 'submitted' || status === 'streaming';
@@ -39,7 +58,7 @@ export default function ChatbotPage() {
 
   // Fetch live chat history from Prisma
   useEffect(() => {
-    fetch('/api/chat/history')
+    fetch('/api/chat/history', { headers: { 'X-BioArc-Client': 'true' } })
       .then((res) => res.json())
       .then((data) => {
         if (data.sessions) {
@@ -88,15 +107,43 @@ export default function ChatbotPage() {
 
   if (!mounted) return null;
 
-  const activeSession = chatHistory.find(s => s.id === activeSessionId);
+  const activeSession = activeSessionId === 'new'
+    ? { id: 'new', title: 'New AI Session', messages: [] }
+    : chatHistory.find(s => s.id === activeSessionId);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !activeSessionId || isLoading) return;
 
-    // Trigger the real AI API and explicitly pass the activeSessionId to prevent duplicate sessions
+    let targetSessionId = activeSessionId;
+    if (activeSessionId === 'new') {
+      try {
+        const res = await fetch('/api/chat/session', {
+          method: 'POST',
+          headers: { 'X-BioArc-Client': 'true' }
+        });
+        const data = await res.json();
+        if (data.session) {
+          const newSession = {
+            id: data.session.id,
+            title: data.session.title,
+            date: new Date(data.session.createdAt).toLocaleDateString(),
+            messages: []
+          };
+          setChatHistory([newSession, ...chatHistory]);
+          setActiveSession(data.session.id);
+          targetSessionId = data.session.id;
+        } else {
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to create session on first send:', err);
+        return;
+      }
+    }
+
     console.log('[CLIENT] 🚀 Submit triggered. Input:', input);
-    sendMessage({ text: input }, { body: { sessionId: activeSessionId, fastMode } });
+    sendMessage({ text: input }, { body: { sessionId: targetSessionId, fastMode } });
     console.log('[CLIENT] 📡 Append called. Waiting for network...');
     setInput('');
   };
@@ -109,8 +156,11 @@ export default function ChatbotPage() {
   const confirmDeleteSession = async () => {
     if (!sessionToDelete) return;
     try {
-      await fetch(`/api/chat/session?sessionId=${sessionToDelete}`, { method: 'DELETE' });
+      await fetch(`/api/chat/session?sessionId=${sessionToDelete}`, { method: 'DELETE', headers: { 'X-BioArc-Client': 'true' } });
       deleteSession(sessionToDelete);
+      if (activeSessionId === sessionToDelete) {
+        setMessages([]);
+      }
     } catch (error) {
       console.error('Failed to delete session', error);
     }
@@ -134,7 +184,7 @@ export default function ChatbotPage() {
     try {
       await fetch(`/api/chat/session`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-BioArc-Client': 'true' },
         body: JSON.stringify({ sessionId: id, title: editTitle.trim() })
       });
       updateSessionTitle(id, editTitle.trim());
@@ -142,6 +192,52 @@ export default function ChatbotPage() {
       console.error('Failed to rename session', error);
     }
   };
+
+  const renderInputForm = () => (
+    <motion.form 
+      layoutId="chatbot-input-form"
+      onSubmit={handleSend} 
+      className="relative flex items-center max-w-4xl mx-auto w-full"
+    >
+      {/* Mode Toggle Inside Input */}
+      <button
+        type="button"
+        onClick={toggleFastMode}
+        disabled={!activeSession}
+        title={fastMode ? "Fast Mode: Uses Gemini 3.5 Flash for rapid responses" : "Deep Mode: Uses Gemma 4 31B IT for complex reasoning"}
+        className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer z-10 ${fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
+          }`}
+      >
+        {fastMode ? <Zap className="w-3.5 h-3.5" /> : <BrainCircuit className="w-3.5 h-3.5" />}
+        {fastMode ? 'FAST' : 'DEEP'}
+      </button>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={activeSession ? "Command the bioreactor..." : "Start a session to begin..."}
+        disabled={!activeSession || isLoading}
+        className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-[100px] text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+      />
+      <button
+        type="button"
+        onClick={() => setIsVoiceModalOpen(true)}
+        disabled={!activeSession || isLoading}
+        className="absolute right-14 p-2.5 text-zinc-400 hover:text-emerald-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer z-10"
+        title="Voice Chat"
+      >
+        <Mic className="w-5 h-5" />
+      </button>
+      <button
+        type="submit"
+        disabled={!input.trim() || !activeSession || isLoading}
+        className="absolute right-2 p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105 z-10"
+        title="Send Message"
+      >
+        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+      </button>
+    </motion.form>
+  );
 
   return (
     <div className="flex-1 flex overflow-hidden p-6 gap-6 min-h-0 h-full">
@@ -166,122 +262,183 @@ export default function ChatbotPage() {
           </div>
         </div>
 
-        {/* Chat Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 scroll-smooth no-scrollbar relative z-10">
+        {/* Dynamic content area */}
+        <div className="flex-1 flex flex-col justify-between min-h-0 relative z-10">
           {!activeSession ? (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-4">
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4">
               <Bot className="w-16 h-16 opacity-20" />
               <p className="font-satoshi text-lg">Select or start a new session to begin.</p>
             </div>
+          ) : messages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto px-6 w-full gap-8">
+              {/* Nice Starting New Chat Title */}
+              <div className="text-center space-y-3">
+                <motion.h1 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-4xl md:text-5xl font-extrabold tracking-tight font-clash text-center bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent"
+                >
+                  Hello, Operator.
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-zinc-400 font-satoshi text-lg text-center"
+                >
+                  How can I assist your BioArc bioreactor today?
+                </motion.p>
+              </div>
+
+              {/* Suggestions grid */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full"
+              >
+                {[
+                  { title: "Optimize Bioreactor", desc: "Suggest optimal parameters for yeast growth", text: "What are the optimal parameters for yeast growth in BioArc?" },
+                  { title: "Query Knowledge", desc: "Find research on pH levels and sensor calibration", text: "Search knowledge base for pH sensor calibration instructions" },
+                  { title: "Calibrate Pumps", desc: "How to safely toggle nutrients and pH actuators", text: "How do I safely toggle nutrients and pH control?" },
+                  { title: "Status Dashboard", desc: "Explain the current telemetry and active FSM states", text: "Explain the current telemetry status and active FSM states" },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setInput(item.text)}
+                    className="p-4 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/20 rounded-2xl text-left transition-all group/card cursor-pointer"
+                  >
+                    <div className="font-semibold text-zinc-200 group-hover/card:text-emerald-400 font-satoshi text-sm mb-1">{item.title}</div>
+                    <div className="text-xs text-zinc-500 font-satoshi leading-relaxed">{item.desc}</div>
+                  </button>
+                ))}
+              </motion.div>
+
+              {/* Centered Input Box */}
+              <div className="w-full">
+                {renderInputForm()}
+              </div>
+            </div>
           ) : (
-            <AnimatePresence initial={false}>
-              {/* Map over LIVE AI SDK messages instead of mocked store messages */}
-              {messages.map((msg: UIMessage, idx) => {
-                const isUser = msg.role === 'user';
-                console.log('[DEBUG_RENDER] msg:', JSON.stringify(msg));
-                // Parse the v4 message payload text or fallback to string content
-                const textContent = (msg as any).content || (msg.parts?.map((part: any) =>
-                  part.type === 'text' ? part.text : ''
-                ).join('')) || '';
+            <>
+              {/* Chat Messages Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 scroll-smooth no-scrollbar relative">
+                <AnimatePresence initial={false}>
+                  {/* Map over LIVE AI SDK messages instead of mocked store messages */}
+                  {messages.map((msg: UIMessage, idx) => {
+                    const isUser = msg.role === 'user';
+                    console.log('[DEBUG_RENDER] msg:', JSON.stringify(msg));
+                    // Parse the v4 message payload text or fallback to string content
+                    const textContent = (msg as any).content || (msg.parts?.map((part: any) =>
+                      part.type === 'text' ? part.text : ''
+                    ).join('')) || '';
 
-                // 🔥 VERCEL SDK v6 FIX: Extract tool invocations directly from the parts array
-                const tools = msg.parts
-                  ? msg.parts
-                    .filter((part: any) => part.type === 'tool-invocation')
-                    .map((part: any) => part.toolInvocation)
-                  : (msg as any).toolInvocations || [];
+                    // 🔥 VERCEL SDK v6 FIX: Extract tool invocations directly from the parts array
+                    const tools = msg.parts
+                      ? msg.parts
+                        .filter((part: any) => part.type === 'tool-invocation')
+                        .map((part: any) => part.toolInvocation)
+                      : (msg as any).toolInvocations || [];
 
-                if (!textContent.trim() && tools.length === 0) return null;
+                    if (!textContent.trim() && tools.length === 0) return null;
 
-                return (
+                    return (
+                      <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className={`flex flex-col max-w-[80%] ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1 px-1">
+                          {isUser ? (
+                            <>
+                              <span className="text-sm font-medium text-emerald-400 font-satoshi">You</span>
+                              <User className="w-4 h-4 text-emerald-400" />
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="w-4 h-4 text-zinc-400" />
+                              <span className="text-sm font-medium text-zinc-400 font-satoshi">BioArc AI</span>
+                            </>
+                          )}
+                        </div>
+
+                        {!isUser && tools.length > 0 && (
+                          <div className="flex flex-col gap-2 mb-2 w-full">
+                            {tools.map((tool: any) => (
+                              <div key={tool.toolCallId} className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md flex items-center gap-2 text-xs font-mono text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.1)] w-fit">
+                                <Activity className="w-3.5 h-3.5 animate-pulse" />
+                                System Action: {tool.toolName}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {textContent.trim() && (
+                          <div className={`px-5 py-3 rounded-2xl font-satoshi text-[15px] leading-relaxed backdrop-blur-md ${isUser
+                            ? 'bg-emerald-500/10 text-emerald-50 rounded-tr-sm shadow-[0_0_20px_rgba(16,185,129,0.05)] whitespace-pre-wrap'
+                            : 'bg-white/[0.03] text-zinc-100 rounded-tl-sm shadow-lg'
+                            }`}>
+                            {isUser ? (
+                              textContent
+                            ) : (
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
+                                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
+                                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                                  code: ({ children, className }) => {
+                                    const isInline = !className;
+                                    return isInline ? (
+                                      <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-300">{children}</code>
+                                    ) : (
+                                      <pre className="bg-black/40 p-3 rounded-lg overflow-x-auto my-2 border border-white/5 font-mono text-sm text-emerald-300">
+                                        <code className={className}>{children}</code>
+                                      </pre>
+                                    );
+                                  },
+                                  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">{children}</a>,
+                                  strong: ({ children }) => <strong className="font-semibold text-emerald-300">{children}</strong>,
+                                }}
+                              >
+                                {textContent}
+                              </ReactMarkdown>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+                {status === 'submitted' && (
                   <motion.div
-                    key={msg.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className={`flex flex-col max-w-[80%] ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                    className="flex flex-col mr-auto items-start max-w-[80%] space-y-1"
                   >
                     <div className="flex items-center gap-2 mb-1 px-1">
-                      {isUser ? (
-                        <>
-                          <span className="text-sm font-medium text-emerald-400 font-satoshi">You</span>
-                          <User className="w-4 h-4 text-emerald-400" />
-                        </>
-                      ) : (
-                        <>
-                          <Bot className="w-4 h-4 text-zinc-400" />
-                          <span className="text-sm font-medium text-zinc-400 font-satoshi">BioArc AI</span>
-                        </>
-                      )}
+                      <Bot className="w-4 h-4 text-zinc-400" />
+                      <span className="text-sm font-medium text-zinc-400 font-satoshi">BioArc AI</span>
                     </div>
-
-                    {!isUser && tools.length > 0 && (
-                      <div className="flex flex-col gap-2 mb-2 w-full">
-                        {tools.map((tool: any) => (
-                          <div key={tool.toolCallId} className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md flex items-center gap-2 text-xs font-mono text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.1)] w-fit">
-                            <Activity className="w-3.5 h-3.5 animate-pulse" />
-                            System Action: {tool.toolName}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {textContent.trim() && (
-                      <div className={`px-5 py-3 rounded-2xl whitespace-pre-wrap font-satoshi text-[15px] leading-relaxed backdrop-blur-md ${isUser
-                        ? 'bg-emerald-500/10 text-emerald-50 rounded-tr-sm shadow-[0_0_20px_rgba(16,185,129,0.05)]'
-                        : 'bg-white/[0.03] text-zinc-100 rounded-tl-sm shadow-lg'
-                        }`}>
-                        {textContent}
-                      </div>
-                    )}
+                    <div className="px-5 py-3.5 rounded-2xl bg-white/[0.03] rounded-tl-sm shadow-lg backdrop-blur-md flex items-center gap-1.5 border border-white/5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
                   </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
 
-        {/* Input Bar */}
-        <div className="p-5 bg-gradient-to-t from-black via-black/80 to-transparent relative z-10">
-          <form onSubmit={handleSend} className="relative flex items-center max-w-4xl mx-auto">
-            {/* Mode Toggle Inside Input */}
-            <button
-              type="button"
-              onClick={toggleFastMode}
-              disabled={!activeSession}
-              title={fastMode ? "Fast Mode: Uses Gemini 3.5 Flash for rapid responses" : "Deep Mode: Uses Gemma 4 31B IT for complex reasoning"}
-              className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
-                }`}
-            >
-              {fastMode ? <Zap className="w-3.5 h-3.5" /> : <BrainCircuit className="w-3.5 h-3.5" />}
-              {fastMode ? 'FAST' : 'DEEP'}
-            </button>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={activeSession ? "Command the bioreactor..." : "Start a session to begin..."}
-              disabled={!activeSession || isLoading}
-              className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-[100px] text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
-            />
-            <button
-              type="button"
-              onClick={() => setIsVoiceModalOpen(true)}
-              disabled={!activeSession || isLoading}
-              className="absolute right-14 p-2.5 text-zinc-400 hover:text-emerald-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Voice Chat"
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-            <button
-              type="submit"
-              disabled={!input.trim() || !activeSession || isLoading}
-              className="absolute right-2 p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105"
-              title="Send Message"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </button>
-          </form>
+              {/* Input Bar */}
+              <div className="p-5 bg-gradient-to-t from-black via-black/80 to-transparent relative z-10 animate-fade-in">
+                {renderInputForm()}
+              </div>
+            </>
+          )}
         </div>
       </motion.div>
 
@@ -338,7 +495,7 @@ export default function ChatbotPage() {
                   )}
                 </div>
                 <p className="text-xs text-zinc-500 font-satoshi truncate leading-relaxed pr-6">
-                  {session.messages[session.messages.length - 1]?.content || "Empty session"}
+                  {session.messages?.at(-1)?.content || "Empty session"}
                 </p>
                 <p className="text-[10px] text-zinc-600 font-mono">
                   {session.date}
