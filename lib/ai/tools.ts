@@ -26,12 +26,13 @@ export const bioarcTools = {
       query: z.string().describe('A comma-separated list of up to 3 short root keywords (e.g., "goal, future scope, hardware"). NEVER pass full sentences. Extract the core nouns from the user request.'),
     }),
     // @ts-ignore - TS fails to resolve the tool overload properly with explicit types
-    execute: async ({ query }: { query?: string }) => {
+    execute: async ({ query, keyword }: { query?: string, keyword?: string }) => {
+      const actualQuery = query || keyword;
       let keywords: string[] = [];
-      if (typeof query === 'string' && query.trim()) {
+      if (typeof actualQuery === 'string' && actualQuery.trim()) {
         try {
           // Sometimes the AI hallucinates a stringified JSON array
-          const parsed = JSON.parse(query);
+          const parsed = JSON.parse(actualQuery);
           if (Array.isArray(parsed)) {
             keywords = parsed.map(String);
           } else {
@@ -39,7 +40,7 @@ export const bioarcTools = {
           }
         } catch {
           // If the AI hallucinates a full sentence, clean it and split by spaces OR commas
-          keywords = query
+          keywords = actualQuery
             .replace(/[^a-zA-Z0-9 ,]/g, '') // Strip special chars
             .split(/[\s,]+/)                // Split by comma or space
             .map(k => k.trim())
@@ -47,7 +48,7 @@ export const bioarcTools = {
             
           // If the word was exactly 3 letters or less (like "aim"), but we dropped everything
           if (keywords.length === 0) {
-            keywords = query.split(',').map(k => k.replace(/[^a-zA-Z0-9 -]/g, '').trim()).filter(Boolean);
+            keywords = actualQuery.split(',').map(k => k.replace(/[^a-zA-Z0-9 -]/g, '').trim()).filter(Boolean);
           }
         }
       }

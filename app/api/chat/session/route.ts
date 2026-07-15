@@ -38,3 +38,23 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete session' }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const { sessionId, title } = await req.json();
+
+    if (!sessionId || !title) {
+      return NextResponse.json({ error: 'Session ID and title are required' }, { status: 400 });
+    }
+
+    const updatedSession = await prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { title: title },
+    });
+
+    return NextResponse.json({ session: updatedSession });
+  } catch (error) {
+    console.error('Failed to rename session:', error);
+    return NextResponse.json({ error: 'Failed to rename session' }, { status: 500 });
+  }
+}

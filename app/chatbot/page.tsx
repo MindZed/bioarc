@@ -6,14 +6,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
-import { Send, MessageSquarePlus, BrainCircuit, Zap, Bot, User, Activity, Loader2, Trash2 } from 'lucide-react';
+import { Send, MessageSquarePlus, BrainCircuit, Zap, Bot, User, Activity, Loader2, Trash2, Mic } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage } from 'ai';
+import { VoiceChatModal } from '@/components/chatbot/VoiceChatModal';
 
 export default function ChatbotPage() {
   const {
     chatHistory, activeSessionId, fastMode,
-    setActiveSession, createNewSession, toggleFastMode, telemetry, fsm, setChatHistory, deleteSession
+    setActiveSession, createNewSession, toggleFastMode, telemetry, fsm, setChatHistory, deleteSession, updateSessionTitle
   } = useStore();
 
   // --- Vercel AI SDK v4 Integration ---
@@ -28,8 +29,13 @@ export default function ChatbotPage() {
   // ------------------------------------
 
   const [input, setInput] = useState('');
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   // Fetch live chat history from Prisma
   useEffect(() => {
@@ -90,18 +96,50 @@ export default function ChatbotPage() {
 
     // Trigger the real AI API and explicitly pass the activeSessionId to prevent duplicate sessions
     console.log('[CLIENT] 🚀 Submit triggered. Input:', input);
-    sendMessage({ text: input }, { body: { sessionId: activeSessionId } });
+    sendMessage({ text: input }, { body: { sessionId: activeSessionId, fastMode } });
     console.log('[CLIENT] 📡 Append called. Waiting for network...');
     setInput('');
   };
 
-  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setSessionToDelete(id);
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
     try {
-      await fetch(`/api/chat/session?sessionId=${id}`, { method: 'DELETE' });
-      deleteSession(id);
+      await fetch(`/api/chat/session?sessionId=${sessionToDelete}`, { method: 'DELETE' });
+      deleteSession(sessionToDelete);
     } catch (error) {
       console.error('Failed to delete session', error);
+    }
+    setSessionToDelete(null);
+  };
+
+  const handleTitleClick = (e: React.MouseEvent, session: any) => {
+    e.stopPropagation();
+    setEditingSessionId(session.id);
+    setEditTitle(session.title);
+  };
+
+  const handleTitleSubmit = async (e: React.FormEvent | React.FocusEvent | React.KeyboardEvent, id: string) => {
+    if ('key' in e && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (editingSessionId !== id) return;
+    
+    setEditingSessionId(null);
+    if (!editTitle.trim()) return;
+
+    try {
+      await fetch(`/api/chat/session`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id, title: editTitle.trim() })
+      });
+      updateSessionTitle(id, editTitle.trim());
+    } catch (error) {
+      console.error('Failed to rename session', error);
     }
   };
 
@@ -211,7 +249,8 @@ export default function ChatbotPage() {
               type="button"
               onClick={toggleFastMode}
               disabled={!activeSession}
-              className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
+              title={fastMode ? "Fast Mode: Uses Gemini 3.5 Flash for rapid responses" : "Deep Mode: Uses Gemma 4 31B IT for complex reasoning"}
+              className={`absolute left-2 flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${fastMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
                 }`}
             >
               {fastMode ? <Zap className="w-3.5 h-3.5" /> : <BrainCircuit className="w-3.5 h-3.5" />}
@@ -223,12 +262,22 @@ export default function ChatbotPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={activeSession ? "Command the bioreactor..." : "Start a session to begin..."}
               disabled={!activeSession || isLoading}
-              className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-16 text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+              className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-[100px] text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
             />
+            <button
+              type="button"
+              onClick={() => setIsVoiceModalOpen(true)}
+              disabled={!activeSession || isLoading}
+              className="absolute right-14 p-2.5 text-zinc-400 hover:text-emerald-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Voice Chat"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
             <button
               type="submit"
               disabled={!input.trim() || !activeSession || isLoading}
-              className="absolute right-2 p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105"
+              className="absolute right-2 p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105"
+              title="Send Message"
             >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
@@ -248,7 +297,7 @@ export default function ChatbotPage() {
             <h3 className="font-satoshi font-semibold text-sm tracking-widest text-zinc-400 uppercase">Chat Sessions</h3>
             <button
               onClick={createNewSession}
-              className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-all"
+              className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-all cursor-pointer"
               title="New Session"
             >
               <MessageSquarePlus className="w-5 h-5" />
@@ -260,15 +309,30 @@ export default function ChatbotPage() {
               <button
                 key={session.id}
                 onClick={() => setActiveSession(session.id)}
-                className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex flex-col gap-1.5 group relative ${activeSessionId === session.id
+                className={`w-full text-left px-4 py-3 rounded-2xl transition-all cursor-pointer flex flex-col gap-1.5 group relative ${activeSessionId === session.id
                   ? 'bg-white/[0.04] shadow-sm'
                   : 'hover:bg-white/[0.02]'
                   }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <h4 className={`font-satoshi font-medium truncate text-[15px] pr-6 ${activeSessionId === session.id ? 'text-emerald-400' : 'text-zinc-300 group-hover:text-white'}`}>
-                    {session.title}
-                  </h4>
+                  {editingSessionId === session.id ? (
+                    <input
+                      autoFocus
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onBlur={(e) => handleTitleSubmit(e, session.id)}
+                      onKeyDown={(e) => handleTitleSubmit(e, session.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`font-satoshi font-medium text-[15px] pr-6 bg-transparent outline-none border-b border-emerald-500/50 w-full ${activeSessionId === session.id ? 'text-emerald-400' : 'text-white'}`}
+                    />
+                  ) : (
+                    <h4 
+                      onClick={(e) => handleTitleClick(e, session)}
+                      className={`font-satoshi font-medium truncate text-[15px] pr-6 ${activeSessionId === session.id ? 'text-emerald-400' : 'text-zinc-300 group-hover:text-white cursor-text'}`}
+                    >
+                      {session.title}
+                    </h4>
+                  )}
                   {activeSessionId === session.id && (
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                   )}
@@ -280,8 +344,9 @@ export default function ChatbotPage() {
                   {session.date}
                 </p>
                 <div
-                  onClick={(e) => handleDeleteSession(session.id, e)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400/70 hover:text-red-400 transition-all"
+                  onClick={(e) => handleDeleteClick(session.id, e)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400/70 hover:text-red-400 cursor-pointer transition-all"
+                  title="Delete Session"
                 >
                   <Trash2 className="w-4 h-4" />
                 </div>
@@ -322,6 +387,50 @@ export default function ChatbotPage() {
           </div>
         </div>
       </motion.div>
+      <VoiceChatModal isOpen={isVoiceModalOpen} onClose={() => setIsVoiceModalOpen(false)} />
+
+      {/* Custom Delete Confirmation Modal */}
+      <AnimatePresence>
+        {sessionToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              className="bg-zinc-900 border border-red-500/30 rounded-3xl p-6 shadow-2xl max-w-sm w-full mx-4"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-red-500/10 rounded-full text-red-400">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-satoshi font-semibold text-white">Delete Session?</h3>
+              </div>
+              <p className="text-zinc-400 text-sm font-satoshi mb-6">
+                Are you sure you want to permanently delete this chat session? This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setSessionToDelete(null)}
+                  className="px-5 py-2.5 rounded-full font-satoshi text-sm font-medium text-zinc-300 hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteSession}
+                  className="px-5 py-2.5 rounded-full font-satoshi text-sm font-medium bg-red-500 hover:bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

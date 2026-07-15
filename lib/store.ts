@@ -26,6 +26,7 @@ interface BioArcStore {
   setSelectedTimeRange: (range: '7D' | '30D' | 'ALL') => void;
   setChatHistory: (sessions: any[]) => void;
   deleteSession: (id: string) => void;
+  updateSessionTitle: (id: string, newTitle: string) => void;
 }
 
 export const useStore = create<BioArcStore>((set) => ({
@@ -34,7 +35,7 @@ export const useStore = create<BioArcStore>((set) => ({
   isSidebarCollapsed: false,
   chatHistory: generateMockChatHistory(),
   activeSessionId: null,
-  fastMode: false,
+  fastMode: true,
   maintenanceLogs: generateMockMaintenanceData().logs,
   hardwareLifespan: generateMockMaintenanceData().hardware,
   selectedTimeRange: '7D',
@@ -107,10 +108,13 @@ export const useStore = create<BioArcStore>((set) => ({
   }),
   setChatHistory: (sessions) => set({ chatHistory: sessions }),
   deleteSession: (id) => set((state) => {
-    const newHistory = state.chatHistory.filter(session => session.id !== id);
+    const newHistory = state.chatHistory.filter(s => s.id !== id);
     const newActiveSessionId = state.activeSessionId === id 
       ? (newHistory.length > 0 ? newHistory[0].id : null) 
       : state.activeSessionId;
     return { chatHistory: newHistory, activeSessionId: newActiveSessionId };
   }),
+  updateSessionTitle: (id, newTitle) => set((state) => ({
+    chatHistory: state.chatHistory.map(s => s.id === id ? { ...s, title: newTitle } : s)
+  })),
 }));

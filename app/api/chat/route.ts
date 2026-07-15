@@ -19,8 +19,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as ChatRequestBody;
     const querySessionId = req.nextUrl.searchParams.get('sessionId');
-    let { messages, sessionId } = body;
-    
+    let { messages, sessionId, fastMode } = body as any;
+
+    // Default fastMode to true if it is not explicitly provided
+    const isFastMode = fastMode !== false;
+
     // Fallback to query parameter if body doesn't contain it
     if (!sessionId && querySessionId) {
       sessionId = querySessionId;
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Session Safety Check
     if (!sessionId) {
       const newSession = await prisma.chatSession.create({
-        data: { title: "Hackathon Demo Session" }
+        data: { title: "New AI Session" }
       });
       sessionId = newSession.id;
     } else {
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
       });
       if (!existingSession) {
         const newSession = await prisma.chatSession.create({
-          data: { title: "Hackathon Demo Session" }
+          data: { title: "New AI Session" }
         });
         sessionId = newSession.id;
       }
@@ -72,9 +75,11 @@ export async function POST(req: NextRequest) {
     });
     console.timeEnd(`[SERVER:${requestId}] DB_Pre_Save`);
 
-    console.log(`[SERVER:${requestId}] 🧠 Calling Gemini API with gemini-3.1-flash-lite`);
+    const modelName = isFastMode ? 'gemini-3.5-flash' : 'gemma-4-31b-it';
+    console.log(`[SERVER:${requestId}] 🧠 Calling Google AI API with model: ${modelName}`);
+
     const result = streamText({
-      model: google('gemini-3.1-flash-lite'),
+      model: google(modelName),
       system: "You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware and read telemetry. IMPORTANT: If the user asks general questions about the BioArc project, its creators, goals, or how it works, you MUST execute a two-step search: 1) Call getKnowledgeBaseTopics to see what keywords exist. 2) Call searchKnowledgeBase using the EXACT keywords you found in step 1. Do not guess keywords. Only use tools if explicitly necessary.",
       messages,
       tools: bioarcTools,
