@@ -420,7 +420,7 @@ export default function ChatbotPage() {
                     );
                   })}
                 </AnimatePresence>
-                {isLoading && (messages.length === 0 || messages[messages.length - 1].role === 'user' || (messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content)) && (
+                {isLoading && (messages.length === 0 || messages[messages.length - 1].role === 'user' || (messages[messages.length - 1].role === 'assistant' && !(messages[messages.length - 1] as any).content && !messages[messages.length - 1].parts?.length)) && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
