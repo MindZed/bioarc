@@ -104,7 +104,7 @@ export default function Dashboard() {
             </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div className="flex justify-between items-center">
-                <h3 className="font-satoshi text-[14px] font-medium text-on-primary/90">Algae Growth Rate (μ)</h3>
+                <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Algae Growth Rate (μ)</h3>
                 <button className="w-8 h-8 rounded-full border border-on-primary/30 flex items-center justify-center hover:bg-on-primary/10 transition-colors text-on-primary">
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </button>
@@ -132,7 +132,7 @@ export default function Dashboard() {
             </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div className="flex justify-between items-center">
-                <h3 className="font-satoshi text-[14px] font-medium text-on-surface-variant">Reactor & Ambient Climate</h3>
+                <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Reactor & Ambient Climate</h3>
                 <button className="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center hover:bg-surface-container transition-colors text-on-surface-variant">
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </button>
@@ -165,7 +165,7 @@ export default function Dashboard() {
             </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div className="flex justify-between items-start">
-                <h3 className="font-satoshi text-[14px] font-medium text-on-surface-variant">Virtual Sensor: pH</h3>
+                <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Virtual Sensor: pH</h3>
                 <div className="px-2 py-1 flex items-center rounded bg-secondary-fixed/10 text-secondary-fixed font-semibold text-[10px] border border-secondary/20">
                   <Bot className="w-3 h-3 mr-1" /> ML Predicted
                 </div>
@@ -188,7 +188,7 @@ export default function Dashboard() {
             </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div className="flex justify-between items-start">
-                <h3 className="font-satoshi text-[14px] font-medium text-on-surface-variant">Virtual Sensor: O² (DO)</h3>
+                <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Virtual Sensor: O² (DO)</h3>
                 <div className="px-2 py-1 flex items-center rounded bg-secondary-fixed/10 text-secondary-fixed font-semibold text-[10px] border border-secondary/20">
                   <Bot className="w-3 h-3 mr-1" /> ML Predicted
                 </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
           {/* 5. Biomass Trends (Chart) */}
           <div className="col-span-12 lg:col-span-6 bg-surface-container-lowest border border-outline-variant flex flex-col motion-card min-h-0 font-clash min-h-[260px] shadow-md p-3 rounded-3xl opacity-0">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-satoshi text-[18px] font-semibold text-on-surface">Biomass & Optical Density Trends</h3>
+              <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Biomass & Optical Density Trends</h3>
               <div className="text-xs text-on-surface-variant bg-surface-container px-2 py-1 rounded">Daily Chlorophyll-A</div>
             </div>
             <div className="flex-1 flex flex-col relative mt-2 min-h-0">
@@ -237,7 +237,7 @@ export default function Dashboard() {
               <div className="w-[60%] flex flex-col justify-between relative z-10">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-satoshi text-[14px] font-medium text-on-surface-variant">Carbon Capture & O² Yield</h3>
+                    <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Carbon Capture & O² Yield</h3>
                   </div>
                   <div className="inline-block px-2 py-1 flex items-center w-max rounded-full bg-secondary-fixed/10 text-secondary-fixed font-bold text-[10px] border border-secondary/20 whitespace-nowrap mb-2">
                     <Leaf className="w-3 h-3 mr-1" /> Net Positive
@@ -269,7 +269,7 @@ export default function Dashboard() {
           {/* 7. Actuator Array */}
           <div className="col-span-12 lg:col-span-3 bg-surface-container-lowest border border-outline-variant flex flex-col motion-card min-h-0 font-clash shadow-md p-3 rounded-3xl opacity-0">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-satoshi text-[18px] font-semibold text-on-surface">Actuator Array</h3>
+              <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">Actuator Array</h3>
               <button className="text-primary hover:bg-surface-container px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-colors">
                 <span className="material-symbols-outlined text-[14px]">add</span> New
               </button>
@@ -286,7 +286,7 @@ export default function Dashboard() {
           {/* 8. Recent System Events & Logs */}
           <div className="col-span-12 lg:col-span-5 bg-surface-container-lowest border border-outline-variant flex flex-col motion-card min-h-0 font-clash shadow-md p-3 rounded-3xl opacity-0">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-satoshi text-[18px] font-semibold text-on-surface">System Logs</h3>
+              <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">System Logs</h3>
               <button className="border border-outline-variant px-3 py-1 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors">View All</button>
             </div>
             <div className="flex-1 flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-2">
@@ -298,7 +298,7 @@ export default function Dashboard() {
 
           {/* 9. Reservoir Level (Gauge) */}
           <div className="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest border border-outline-variant flex flex-col items-center justify-center motion-card min-h-0 font-clash relative shadow-md p-3 rounded-3xl opacity-0">
-            <h3 className="font-satoshi text-[18px] font-semibold text-on-surface absolute top-6 left-6">Reservoir Level</h3>
+            <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant absolute top-6 left-6">Reservoir Level</h3>
             <div className="relative w-32 h-48 mt-4 border-4 border-surface-container-highest rounded-3xl overflow-hidden bg-surface-container shadow-inner">
               <div className="absolute bottom-0 left-0 w-full bg-secondary-fixed-dim transition-all duration-1000 ease-in-out" style={{ height: `${telemetry.reservoirVolume}%` }}>
                 <div className="absolute -top-2 left-0 w-[200%] h-8 bg-secondary-fixed-dim opacity-50 animate-pulse" style={{ borderRadius: '38% 42% 0 0', transform: 'translateX(-25%)' }}></div>
@@ -319,7 +319,7 @@ export default function Dashboard() {
           <div className="col-span-12 md:col-span-6 lg:col-span-3 bg-surface-container-lowest rounded-3xl p-3 shadow-md text-on-surface flex flex-col motion-card min-h-0 font-clash relative overflow-hidden border border-primary/30 items-center justify-center gap-2 opacity-0">
             <div className="absolute inset-0 bg-primary/10"></div>
             <div className="relative z-10 flex justify-between items-center mb-2 w-full">
-              <h3 className="font-satoshi text-[14px] font-medium text-primary">FSM Runtime</h3>
+              <h3 className="font-satoshi text-[16px] font-semibold text-on-surface-variant">FSM Runtime</h3>
             </div>
             <div className="relative z-10 text-center my-auto">
               <div className="text-[40px] font-bold tracking-tight  text-on-surface">01:24:08</div>

@@ -3,6 +3,7 @@
 
 import { streamText, ModelMessage, isStepCount, generateText } from 'ai';
 import { google } from '@ai-sdk/google';
+import { createGroq } from '@ai-sdk/groq';
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/db';
 import { bioarcTools } from '@/lib/ai/tools';
@@ -50,11 +51,15 @@ export async function POST(req: NextRequest) {
 
     console.log(`[SERVER:${requestId}] Incoming messages:`, JSON.stringify(messages));
 
-    // Sanitize messages to ensure 'content' is present (compatibility with SDK versions)
-    messages = messages.map((msg: any) => ({
-      ...msg,
-      content: msg.content !== undefined ? msg.content : (msg.parts ? msg.parts.map((p: any) => p.text || '').join('') : '')
-    }));
+    // Sanitize messages to strictly use 'role' and 'content' (strip 'parts' which breaks OpenAI/Groq)
+    messages = messages.map((msg: any) => {
+      const sanitized = { ...msg };
+      if (sanitized.parts && !sanitized.content) {
+        sanitized.content = sanitized.parts.map((p: any) => p.text || '').join('');
+      }
+      delete sanitized.parts;
+      return sanitized;
+    });
 
     // Session Safety Check
     if (!sessionId) {
@@ -87,15 +92,32 @@ export async function POST(req: NextRequest) {
     });
     console.timeEnd(`[SERVER:${requestId}] DB_Pre_Save`);
 
-    const modelName = isFastMode ? 'gemini-3.5-flash' : 'gemma-4-31b-it';
-    console.log(`[SERVER:${requestId}] 🧠 Calling Google AI API with model: ${modelName}`);
+    const aiProvider = process.env.AI_PROVIDER?.toLowerCase() === 'groq' ? 'groq' : 'google';
+    
+    let activeModel;
+    let modelLogName;
+    
+    if (aiProvider === 'groq') {
+      const groq = createGroq({
+        apiKey: process.env.GROQ_API_KEY || '',
+      });
+      const selectedModel = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
+      activeModel = groq(selectedModel);
+      modelLogName = `Groq (${selectedModel})`;
+    } else {
+      const selectedModel = process.env.AI_MODEL || (isFastMode ? 'gemini-3.5-flash' : 'gemini-1.5-pro');
+      activeModel = google(selectedModel);
+      modelLogName = `Google (${selectedModel})`;
+    }
+
+    console.log(`[SERVER:${requestId}] 🧠 Calling AI API with model: ${modelLogName}`);
 
     const result = streamText({
-      model: google(modelName),
-      system: "You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware and read telemetry. IMPORTANT: If the user asks general questions about the BioArc project, its creators, goals, or how it works, you MUST execute a two-step search: 1) Call getKnowledgeBaseTopics to see what keywords exist. 2) Call searchKnowledgeBase using the EXACT keywords you found in step 1. Do not guess keywords. Only use tools if explicitly necessary.",
+      model: activeModel,
+      system: "You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware, read telemetry, and search the project knowledge base.\n\nSTRICT RULES:\n1. Do not use any tools for simple conversational greetings (e.g., 'hello', 'how are you').\n2. NEVER use toggleActuator or hardware tools unless the user EXPLICITLY asks you to turn a specific device on or off.\n3. Only search the knowledge base when answering specific questions about the BioArc project itself.\n4. Output plain text only for tool execution, do not output raw JSON or <function> tags in your responses.\n5. Use rich markdown formatting (bolding, lists, code blocks, etc.) to make your responses visually appealing and highly structured.\n6. Do NOT use emojis within the body of your text. You may place 1 or 2 highly relevant emojis at the very end of your entire response, but nowhere else.",
       messages,
       tools: bioarcTools,
-      stopWhen: isStepCount(5), // Increased from 3 to 5 to allow multi-step tool use
+      stopWhen: isStepCount(5),
       onFinish: async (event: { text: any; }) => {
         try {
           console.log(`[SERVER:${requestId}] 🏁 AI Stream finished. Starting background DB save.`);
@@ -116,22 +138,25 @@ export async function POST(req: NextRequest) {
           });
 
           if (session && session.title === "New AI Session") {
-            try {
-              const { text: titleText } = await generateText({
-                model: google('gemini-3.5-flash'),
-                prompt: `Generate a short, concise chat session title (maximum 4 words, no punctuation, no quotes) for the following initial user message: "${contentString}"`
-              });
-              
-              const cleanTitle = titleText.trim().replace(/^["']|["']$/g, '');
-              
-              await prisma.chatSession.update({
-                where: { id: sessionId! },
-                data: { title: cleanTitle }
-              });
-              console.log(`[SERVER] Generated session title: ${cleanTitle}`);
-            } catch (titleError) {
-              console.error('Failed to generate dynamic title:', titleError);
-            }
+            // Fire and forget so it doesn't block the UI loading state
+            Promise.resolve().then(async () => {
+              try {
+                const { text: titleText } = await generateText({
+                  model: activeModel,
+                  prompt: `Generate a short, concise chat session title (maximum 4 words, no punctuation, no quotes) for the following initial user message: "${contentString}"`
+                });
+                
+                const cleanTitle = titleText.trim().replace(/^["']|["']$/g, '');
+                
+                await prisma.chatSession.update({
+                  where: { id: sessionId! },
+                  data: { title: cleanTitle }
+                });
+                console.log(`[SERVER] Generated session title: ${cleanTitle}`);
+              } catch (titleError) {
+                console.error('Failed to generate dynamic title:', titleError);
+              }
+            });
           }
           console.timeEnd(`[SERVER:${requestId}] Total_Request_Time`);
         } catch (dbError) {

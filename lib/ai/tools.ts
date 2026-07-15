@@ -21,9 +21,9 @@ export const bioarcTools = {
     }
   }),
   searchKnowledgeBase: tool({
-    description: "Search the BioArc project database for facts, goals, architecture, and documentation. Use this whenever the user asks general questions about what BioArc is, how it works, or who built it.",
+    description: "Search the database for facts about the BioArc project, how it works, its goals, and its creators.",
     parameters: z.object({
-      query: z.string().describe('A comma-separated list of up to 3 short root keywords (e.g., "goal, future scope, hardware"). NEVER pass full sentences. Extract the core nouns from the user request.'),
+      query: z.string().describe("A single search keyword or short phrase. Example: 'goal' or 'creator'"),
     }),
     // @ts-ignore - TS fails to resolve the tool overload properly with explicit types
     execute: async ({ query, keyword }: { query?: string, keyword?: string }) => {
@@ -53,11 +53,14 @@ export const bioarcTools = {
         }
       }
 
-      console.log('[TOOL] 🔎 Multi-query search for:', keywords);
-      
-      if (keywords.length === 0) {
-        return "No valid keywords provided for search.";
+      if (!actualQuery || !actualQuery.trim()) {
+        console.log('[TOOL] 🔎 Empty query received. Returning general project context.');
+        const records = await prisma.projectContext.findMany({ take: 10 });
+        if (records.length === 0) return "No data found.";
+        return records.map(r => `Knowledge (Keyword: ${r.keyword}): ${r.content}`).join('\n\n');
       }
+
+      console.log('[TOOL] 🔎 Multi-query search for:', keywords);
     
       // Dynamically build the OR conditions for every keyword provided
       const orConditions = keywords.flatMap(kw => [

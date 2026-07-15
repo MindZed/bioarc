@@ -413,20 +413,23 @@ export default function ChatbotPage() {
                     );
                   })}
                 </AnimatePresence>
-                {status === 'submitted' && (
+                {isLoading && (messages.length === 0 || messages[messages.length - 1].role === 'user' || (messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content)) && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="flex flex-col mr-auto items-start max-w-[80%] space-y-1"
                   >
                     <div className="flex items-center gap-2 mb-1 px-1">
-                      <Bot className="w-4 h-4 text-zinc-400" />
-                      <span className="text-sm font-medium text-zinc-400 font-satoshi">BioArc AI</span>
+                      <Bot className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <span className="text-sm font-medium text-emerald-400 font-satoshi">BioArc AI is thinking...</span>
                     </div>
-                    <div className="px-5 py-3.5 rounded-2xl bg-white/[0.03] rounded-tl-sm shadow-lg backdrop-blur-md flex items-center gap-1.5 border border-white/5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="px-5 py-3.5 rounded-2xl bg-emerald-500/5 rounded-tl-sm shadow-[0_0_15px_rgba(16,185,129,0.1)] backdrop-blur-md flex items-center gap-3 border border-emerald-500/20">
+                      <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </motion.div>
                 )}
