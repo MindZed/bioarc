@@ -1,3 +1,6 @@
+// app/layout.tsx
+// Layout for the BioArc application
+
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -18,6 +21,15 @@ const clashDisplay = localFont({
 export const metadata: Metadata = {
   title: "BioArc - Enterprise IoT Bioreactor Interface",
   description: "Next.js frontend for BioArc automated microalgae bioreactor.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BioArc",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

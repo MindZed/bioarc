@@ -1,3 +1,6 @@
+// components/ui/badge.tsx
+// This file will be used to create the badge component
+
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"

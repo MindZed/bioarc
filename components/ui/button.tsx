@@ -1,3 +1,6 @@
+// components/ui/button.tsx
+// This file will be used to create the button component
+
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
