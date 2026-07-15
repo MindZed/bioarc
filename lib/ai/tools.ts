@@ -57,7 +57,7 @@ export const bioarcTools = {
         console.log('[TOOL] 🔎 Empty query received. Returning general project context.');
         const records = await prisma.projectContext.findMany({ take: 10 });
         if (records.length === 0) return "No data found.";
-        return records.map(r => `Knowledge (Keyword: ${r.keyword}): ${r.content}`).join('\n\n');
+        return records.map((r: any) => `Knowledge (Keyword: ${r.keyword}): ${r.content}`).join('\n\n');
       }
 
       console.log('[TOOL] 🔎 Multi-query search for:', keywords);
@@ -77,7 +77,7 @@ export const bioarcTools = {
       
       if (records.length === 0) return "No data found for these keywords.";
     
-      return records.map(r => `Knowledge (Keyword: ${r.keyword}): ${r.content}`).join('\n\n');
+      return records.map((r: any) => `Knowledge (Keyword: ${r.keyword}): ${r.content}`).join('\n\n');
     },
   }),
   toggleActuator: tool({
