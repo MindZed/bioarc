@@ -32,7 +32,7 @@ interface BioArcStore {
 export const useStore = create<BioArcStore>((set) => ({
   telemetry: generateMockTelemetry(),
   fsm: generateMockFSM(),
-  isSidebarCollapsed: false,
+  isSidebarCollapsed: true,
   chatHistory: [],
   activeSessionId: null,
   fastMode: true,

@@ -49,6 +49,7 @@ export default function ChatbotPage() {
 
   const [input, setInput] = useState('');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [showMobileHistory, setShowMobileHistory] = useState(false);
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -240,12 +241,12 @@ export default function ChatbotPage() {
   );
 
   return (
-    <div className="flex-1 flex overflow-hidden p-6 gap-6 min-h-0 h-full">
+    <div className="flex-1 flex overflow-hidden p-6 max-md:p-0 gap-6 min-h-0 h-full relative">
       {/* LEFT COLUMN: CHAT CONSOLE */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="flex-1 flex flex-col min-h-0 relative overflow-hidden rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] group"
+        className="flex-1 flex flex-col min-h-0 relative overflow-hidden rounded-3xl max-md:rounded-none shadow-[0_0_50px_rgba(0,0,0,0.5)] group"
         style={{ backgroundImage: "url('/ChatbotBG.webp')", backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         {/* Dark translucent overlay */}
@@ -260,6 +261,12 @@ export default function ChatbotPage() {
               <p className="text-xs text-zinc-400 font-satoshi">{activeSession?.title || "No active session"}</p>
             </div>
           </div>
+          <button 
+            onClick={() => setShowMobileHistory(true)}
+            className="md:hidden bg-zinc-800/80 text-zinc-300 p-2 rounded-full hover:bg-zinc-700 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[20px]">history</span>
+          </button>
         </div>
 
         {/* Dynamic content area */}
@@ -323,7 +330,7 @@ export default function ChatbotPage() {
           ) : (
             <>
               {/* Chat Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 scroll-smooth no-scrollbar relative">
+              <div className="flex-1 overflow-y-auto p-6 max-md:p-4 space-y-6 max-md:space-y-4 min-h-0 scroll-smooth no-scrollbar relative">
                 <AnimatePresence initial={false}>
                   {/* Map over LIVE AI SDK messages instead of mocked store messages */}
                   {messages.map((msg: UIMessage, idx) => {
@@ -346,10 +353,10 @@ export default function ChatbotPage() {
                     return (
                       <motion.div
                         key={msg.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ delay: idx * 0.05 }}
-                        className={`flex flex-col max-w-[80%] ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                        className={`flex flex-col max-w-[95%] md:max-w-[80%] ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
                       >
                         <div className="flex items-center gap-2 mb-1 px-1">
                           {isUser ? (
@@ -445,23 +452,31 @@ export default function ChatbotPage() {
         </div>
       </motion.div>
 
-      {/* RIGHT COLUMN: HISTORY SIDEBAR (Untouched) */}
+      {/* RIGHT COLUMN: HISTORY SIDEBAR */}
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-80 flex flex-col gap-6 min-h-0 shrink-0"
+        className={`w-80 flex flex-col gap-6 min-h-0 shrink-0 transition-all duration-300 ${showMobileHistory ? 'max-md:fixed max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:z-[60] max-md:bg-zinc-950 max-md:p-4 max-md:shadow-2xl' : 'max-md:hidden'}`}
       >
         {/* History List Card */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
-          <div className="px-2 py-4 flex items-center justify-between z-10">
+        <div className="flex-1 flex flex-col min-h-0 relative bg-zinc-900/50 md:bg-transparent rounded-2xl md:rounded-none">
+          <div className="px-4 md:px-2 py-4 flex items-center justify-between z-10 border-b border-white/5 md:border-none">
             <h3 className="font-satoshi font-semibold text-sm tracking-widest text-zinc-400 uppercase">Chat Sessions</h3>
-            <button
-              onClick={createNewSession}
-              className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-all cursor-pointer"
-              title="New Session"
-            >
-              <MessageSquarePlus className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={createNewSession}
+                className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-all cursor-pointer"
+                title="New Session"
+              >
+                <MessageSquarePlus className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowMobileHistory(false)}
+                className="md:hidden p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-full ml-1"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto min-h-0 space-y-1 pr-2 custom-scrollbar">

@@ -19,7 +19,8 @@ export function Sidebar() {
   ];
 
   return (
-    <nav className={`bg-surface-container-lowest/80 backdrop-blur-xl fixed left-0 top-0 h-full ${isSidebarCollapsed ? 'w-[80px]' : 'w-[280px]'} border-r border-outline-variant shadow-lg flex flex-col py-6 px-4 z-50 transition-all duration-300 ease-in-out`}>
+    <>
+    <nav className={`bg-surface-container-lowest/80 backdrop-blur-xl fixed left-0 top-0 h-full ${isSidebarCollapsed ? 'w-[64px]' : 'w-[280px]'} max-md:hidden border-r border-outline-variant shadow-lg flex flex-col py-6 px-4 z-50 transition-all duration-300 ease-in-out`}>
       <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} mb-8`}>
         <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'hidden' : 'px-2'} transition-opacity duration-300`}>
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-container text-on-primary flex items-center justify-center font-bold shadow-[0_0_15px_rgba(78,222,163,0.3)]">B</div>
@@ -75,6 +76,36 @@ export function Sidebar() {
           </Link>
         </li>
       </ul>
+      <div className={`mt-6 ${isSidebarCollapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
+        <div className="bg-surface-container-low rounded-xl p-3 border border-outline-variant/30">
+          <p className="text-[10px] text-on-surface-variant text-center leading-tight uppercase font-medium">
+            {isSidebarCollapsed ? 'v1.0' : 'BioArc v1.0.0'}<br/>
+            {isSidebarCollapsed ? '' : 'System Normal'}
+          </p>
+        </div>
+      </div>
     </nav>
+    
+    {/* Mobile-only flag navigation */}
+    <nav className="md:hidden fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-surface-container-lowest/90 backdrop-blur-xl border-l border-y border-outline-variant rounded-l-xl p-1.5 flex flex-col gap-2 shadow-[-5px_0_20px_rgba(0,0,0,0.5)]">
+      {navItems.map((item) => {
+        const isActive = pathname === item.href;
+        return (
+          <Link 
+            key={item.name}
+            href={item.href} 
+            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ${
+              isActive 
+                ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(78,222,163,0.2)]' 
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+            }`} 
+            title={item.name}
+          >
+            <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+          </Link>
+        );
+      })}
+    </nav>
+    </>
   );
 }
