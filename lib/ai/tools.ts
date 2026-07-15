@@ -16,7 +16,7 @@ export const bioarcTools = {
         select: { keyword: true }
       });
       if (records.length === 0) return "The knowledge base is currently empty.";
-      const topics = records.map(r => r.keyword).join(', ');
+      const topics = records.map((r: any) => r.keyword).join(', ');
       return `Available keywords to search: ${topics}`;
     }
   }),
