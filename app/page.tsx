@@ -6,11 +6,13 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { motion, stagger, useAnimate } from "framer-motion";
-import { Bot, Leaf } from "lucide-react";
+import { Bot, Leaf, ShieldAlert } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, YAxis } from "recharts";
+import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
   const { telemetry, fsm, updateTelemetry } = useStore();
+  const { data: session } = useSession();
   const [scope, animate] = useAnimate();
   const [mounted, setMounted] = useState(false);
 
@@ -185,7 +187,16 @@ export default function Dashboard() {
           </div>
 
           {/* 7. Actuator Array */}
-          <div className="max-md:order-7 col-span-2 md:col-span-3 lg:col-span-2 lg:row-span-2 bg-surface-container-lowest border border-outline-variant flex flex-col motion-card min-h-0 font-clash shadow-md p-4 rounded-2xl opacity-0 hover:border-outline/50 transition-colors duration-300">
+          <div className="max-md:order-7 col-span-2 md:col-span-3 lg:col-span-2 lg:row-span-2 bg-surface-container-lowest border border-outline-variant flex flex-col motion-card min-h-0 font-clash shadow-md p-4 rounded-2xl opacity-0 hover:border-outline/50 transition-colors duration-300 relative overflow-hidden">
+            
+            {session?.user?.role !== 'ADMIN' && (
+              <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-4">
+                <ShieldAlert className="w-8 h-8 text-red-400 mb-2" />
+                <h4 className="text-sm font-semibold text-white">Admin Access Required</h4>
+                <p className="text-[10px] text-zinc-400 mt-1">Hardware actuators are locked.</p>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant uppercase tracking-wider">Actuator Array</h3>
               <div className="flex items-center gap-1 text-[10px] text-on-surface-variant">
@@ -193,7 +204,7 @@ export default function Dashboard() {
                 {Object.values(fsm).filter(v => v === true).length} Active
               </div>
             </div>
-            <ul className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-1">
+            <ul className={`flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-1 ${session?.user?.role !== 'ADMIN' ? 'opacity-20 pointer-events-none' : ''}`}>
               <ActuatorItem name="Inlet Pump" icon="water_pump" active={fsm.inletPump} />
               <ActuatorItem name="Outlet Pump" icon="valve" active={fsm.outletPump} />
               <ActuatorItem name="Air Compressor" icon="air" active={fsm.airCompressor} />

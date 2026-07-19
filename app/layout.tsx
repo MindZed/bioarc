@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ClientLayout } from "@/components/layout/ClientLayout";
+import { SessionProvider } from "next-auth/react";
 
 const satoshi = localFont({
   src: "./_fonts/Satoshi-Variable.ttf",
@@ -46,9 +47,11 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background text-on-surface font-body-lg min-h-screen flex overflow-hidden">
-        <ClientLayout>
-          {children}
-        </ClientLayout>
+        <SessionProvider>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
+        </SessionProvider>
       </body>
     </html>
   );

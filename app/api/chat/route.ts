@@ -6,7 +6,8 @@ import { google } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { bioarcTools } from '@/lib/ai/tools';
+import { getBioarcTools } from '@/lib/ai/tools';
+import { auth } from '@/lib/auth';
 
 interface ChatRequestBody {
   messages: ModelMessage[];
@@ -18,6 +19,10 @@ export async function POST(req: NextRequest) {
   console.log(`[SERVER:${requestId}] 🟢 Incoming POST request`);
   console.time(`[SERVER:${requestId}] Total_Request_Time`);
   try {
+    const sessionAuth = await auth();
+    const userRole = sessionAuth?.user?.role || 'USER';
+    const userId = sessionAuth?.user?.id || null;
+    
     const body = (await req.json()) as ChatRequestBody;
     const querySessionId = req.nextUrl.searchParams.get('sessionId');
     let { messages, sessionId, fastMode } = body as any;
@@ -64,18 +69,16 @@ export async function POST(req: NextRequest) {
     // Session Safety Check
     if (!sessionId) {
       const newSession = await prisma.chatSession.create({
-        data: { title: "New AI Session" }
+        data: { title: "New AI Session", userId: userId }
       });
       sessionId = newSession.id;
     } else {
       const existingSession = await prisma.chatSession.findUnique({
         where: { id: sessionId }
       });
-      if (!existingSession) {
-        const newSession = await prisma.chatSession.create({
-          data: { title: "New AI Session" }
-        });
-        sessionId = newSession.id;
+      // Allow if user owns it OR if it's an anonymous session being accessed by an anonymous user
+      if (!existingSession || existingSession.userId !== userId) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
       }
     }
 
@@ -114,9 +117,9 @@ export async function POST(req: NextRequest) {
 
     const result = streamText({
       model: activeModel,
-      system: "You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware, read telemetry, and search the project knowledge base.\n\nSTRICT RULES:\n1. Do not use any tools for simple conversational greetings (e.g., 'hello', 'how are you').\n2. NEVER use toggleActuator or hardware tools unless the user EXPLICITLY asks you to turn a specific device on or off.\n3. Only search the knowledge base when answering specific questions about the BioArc project itself.\n4. Output plain text only for tool execution, do not output raw JSON or <function> tags in your responses.\n5. Use rich markdown formatting (bolding, lists, code blocks, etc.) to make your responses visually appealing and highly structured.\n6. Do NOT use emojis within the body of your text. You may place 1 or 2 highly relevant emojis at the very end of your entire response, but nowhere else.",
+      system: `You are the BioArc Reactor AI. You manage a physical algae bioreactor. You have tools to control hardware, read telemetry, and search the project knowledge base.\n\nSTRICT RULES:\n1. Do not use any tools for simple conversational greetings (e.g., 'hello', 'how are you').\n2. NEVER use toggleActuator or hardware tools unless the user EXPLICITLY asks you to turn a specific device on or off.\n3. Only search the knowledge base when answering specific questions about the BioArc project itself.\n4. Output plain text only for tool execution, do not output raw JSON or <function> tags in your responses.\n5. Use rich markdown formatting (bolding, lists, code blocks, etc.) to make your responses visually appealing and highly structured.\n6. Do NOT use emojis within the body of your text. You may place 1 or 2 highly relevant emojis at the very end of your entire response, but nowhere else.\n7. The current user is logged in with role: ${userRole}. Only ADMIN users can control hardware. If a USER asks to control hardware, politely refuse.\n8. NEVER hallucinate tool executions. You MUST actually invoke the tool to confirm an action.`,
       messages,
-      tools: bioarcTools,
+      tools: getBioarcTools(userRole),
       stopWhen: isStepCount(5),
       onFinish: async (event: { text: any; }) => {
         try {

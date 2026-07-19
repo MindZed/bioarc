@@ -3,10 +3,15 @@
 
 import prisma from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const session = await auth();
+    const userId = session?.user?.id || null;
+
     const sessions = await prisma.chatSession.findMany({
+      where: { userId: userId },
       orderBy: { updatedAt: 'desc' },
       include: {
         messages: {

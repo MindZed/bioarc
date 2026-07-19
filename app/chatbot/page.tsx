@@ -12,8 +12,13 @@ import { DefaultChatTransport, UIMessage } from 'ai';
 import { VoiceChatModal } from '@/components/chatbot/VoiceChatModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function ChatbotPage() {
+  const { data: session, status: authStatus } = useSession();
+  const router = useRouter();
+
   const {
     chatHistory, activeSessionId, fastMode,
     setActiveSession, createNewSession, toggleFastMode, telemetry, fsm, setChatHistory, deleteSession, updateSessionTitle
@@ -59,8 +64,12 @@ export default function ChatbotPage() {
 
   // Fetch live chat history from Prisma
   useEffect(() => {
+    // We allow fetching history for both authenticated and anonymous users
     fetch('/api/chat/history', { headers: { 'X-BioArc-Client': 'true' } })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Auth or server error');
+        return res.json();
+      })
       .then((data) => {
         if (data.sessions) {
           // Format timestamps to match existing UI
@@ -123,6 +132,15 @@ export default function ChatbotPage() {
           method: 'POST',
           headers: { 'X-BioArc-Client': 'true' }
         });
+        
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403 || res.status === 500) {
+            alert("Your session is invalid or has expired (likely due to a system reset). Please log out and log back in to continue.");
+            return;
+          }
+          throw new Error('Failed to create session');
+        }
+
         const data = await res.json();
         if (data.session) {
           const newSession = {
@@ -135,10 +153,12 @@ export default function ChatbotPage() {
           setActiveSession(data.session.id);
           targetSessionId = data.session.id;
         } else {
+          alert("Failed to initialize a new session. Please refresh or log in again.");
           return;
         }
       } catch (err) {
         console.error('Failed to create session on first send:', err);
+        alert("A network or server error occurred. Please refresh or log in again.");
         return;
       }
     }

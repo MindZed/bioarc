@@ -2,22 +2,27 @@
 // This file will be used to execute the tools
 
 import { NextRequest, NextResponse } from 'next/server';
-import { bioarcTools } from '@/lib/ai/tools';
+import { getBioarcTools } from '@/lib/ai/tools';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    const userRole = session?.user?.role || 'USER';
+    const toolsInstance = getBioarcTools(userRole);
+
     const { toolName, args } = await req.json();
 
     if (!toolName || typeof toolName !== 'string') {
       return NextResponse.json({ error: 'Tool name is required and must be a string' }, { status: 400 });
     }
 
-    const allowedTools = Object.keys(bioarcTools);
+    const allowedTools = Object.keys(toolsInstance);
     if (!allowedTools.includes(toolName)) {
       return NextResponse.json({ error: `Tool ${toolName} is not allowed` }, { status: 403 });
     }
 
-    const tool = bioarcTools[toolName as keyof typeof bioarcTools];
+    const tool = toolsInstance[toolName as keyof typeof toolsInstance];
 
     try {
       const toolDef = tool as any;
