@@ -9,6 +9,8 @@ datasource db {
 model ChatSession {
   id        String        @id @default(uuid())
   title     String
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id])
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  ChatMessage[]
@@ -29,4 +31,62 @@ model ProjectContext {
   content   String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  name         String?
+  role         String        @default("USER")
+  chatSessions ChatSession[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Telemetry {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+
+  // FSM State
+  state String
+
+  // Environmental Data
+  waterTemp   Float
+  airTemp     Float
+  humidity    Float
+  pressure    Float
+  levelCm     Int
+  predictedPh Float @default(7.0)
+  predictedDo Float @default(6.5)
+
+  // Actuator States
+  relayIntake   Boolean
+  relayOuttake  Boolean
+  relayAir      Boolean
+  relayLight    Boolean
+  relayAgitator Boolean
+
+  @@index([timestamp(sort: Desc)]) // Optimize for time-series querying
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  level     String // "info", "warning", "critical"
+  message   String
+
+  @@index([timestamp(sort: Desc)])
+}
+
+model DeviceConfig {
+  id        String   @id @default(uuid())
+  updatedAt DateTime @updatedAt
+
+  lightOnHr      Int     @default(8)
+  lightOffHr     Int     @default(20)
+  enableLights   Boolean @default(true)
+  enableAir      Boolean @default(true)
+  enableAgitator Boolean @default(true)
+  enableRefill   Boolean @default(true)
 }

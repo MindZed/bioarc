@@ -6,10 +6,14 @@
 import { useStore } from "@/lib/store";
 import { Sidebar } from "./Sidebar";
 import { useEffect, useState } from "react";
+import { useWebSocket } from "@/lib/hooks/useWebSocket";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { isSidebarCollapsed, toggleSidebar } = useStore();
   const [mounted, setMounted] = useState(false);
+
+  // Establish live WebSocket connection to Go Backend
+  useWebSocket();
 
   useEffect(() => {
     setMounted(true);
