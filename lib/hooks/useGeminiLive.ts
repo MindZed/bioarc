@@ -283,7 +283,8 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
               }
 
               // Ensure we capture 16kHz
-              const int16PCM = downsampleBuffer(inputData, audioContextRef.current!.sampleRate, 16000);
+              if (!audioContextRef.current) return;
+              const int16PCM = downsampleBuffer(inputData, audioContextRef.current.sampleRate, 16000);
               const base64 = arrayBufferToBase64(int16PCM.buffer);
               sendAudioChunk(base64);
             };

@@ -7,13 +7,15 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { Activity, Wrench, AlertTriangle, ShieldCheck, Terminal, Disc3, Database, Lock, Unlock, X, Save } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 export default function MaintenancePage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
+
   const { maintenanceLogs, hardwareLifespan } = useStore();
   const [mounted, setMounted] = useState(false);
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [password, setPassword] = useState('');
   const [keyword, setKeyword] = useState('');
   const [content, setContent] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -21,7 +23,7 @@ export default function MaintenancePage() {
 
   const handleSaveContext = async () => {
     setStatusMessage('');
-    if (!password || !keyword || !content) {
+    if (!keyword || !content) {
       setStatusMessage('Please fill all fields');
       return;
     }
@@ -29,8 +31,11 @@ export default function MaintenancePage() {
     try {
       const res = await fetch('/api/context', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, keyword, content }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-BioArc-Client': 'true'
+        },
+        body: JSON.stringify({ keyword, content }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -289,32 +294,14 @@ export default function MaintenancePage() {
               </button>
 
               <div className="p-8 flex flex-col gap-6">
-                {!isUnlocked ? (
+                {!isAdmin ? (
                   <div className="flex flex-col items-center text-center gap-4 py-4">
                     <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-2">
                       <Lock className="w-7 h-7 text-red-400" />
                     </div>
                     <div>
                       <h3 className="font-clash text-xl font-semibold text-white">Admin Authorization Required</h3>
-                      <p className="text-zinc-400 font-satoshi text-sm mt-2">Enter the admin password to modify the secure knowledge base.</p>
-                    </div>
-                    <div className="w-full mt-4 flex flex-col gap-3">
-                      <input
-                        type="password"
-                        placeholder="Admin Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-emerald-500/50 transition-colors"
-                      />
-                      <button
-                        onClick={() => {
-                          if (password.trim()) setIsUnlocked(true);
-                        }}
-                        className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-xl px-4 py-3 transition-colors"
-                      >
-                        <Unlock className="w-4 h-4" />
-                        Unlock System
-                      </button>
+                      <p className="text-zinc-400 font-satoshi text-sm mt-2">You must be logged in as an administrator to modify the secure knowledge base.</p>
                     </div>
                   </div>
                 ) : (

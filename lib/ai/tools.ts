@@ -5,7 +5,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import prisma from '@/lib/db';
 
-export const bioarcTools = {
+export const getBioarcTools = (userRole?: string) => ({
   getKnowledgeBaseTopics: tool({
     description: "Always call this FIRST before searching the knowledge base. It returns a list of all valid topics/keywords currently available in the database.",
     parameters: z.object({}),
@@ -88,6 +88,9 @@ export const bioarcTools = {
     }),
     // @ts-ignore - TS fails to resolve the tool overload properly with explicit types
     execute: async ({ device, state }: { device: 'Pump_12V' | 'Wiper_Servo' | 'LED_Grow', state: boolean }) => {
+      if (userRole !== 'ADMIN') {
+        return `Error: Unauthorized. Only Admins can control hardware.`;
+      }
       console.log('[TOOL] ⚙️ toggleActuator triggered for:', device);
       // Simulate network latency
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -111,4 +114,4 @@ export const bioarcTools = {
       };
     },
   }),
-};
+});

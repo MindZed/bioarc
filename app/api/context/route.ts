@@ -3,15 +3,17 @@
 
 import prisma from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { password, keyword, content } = body;
-
-    if (password !== process.env.ADMIN_PASSWORD) {
-      return NextResponse.json({ error: 'Invalid admin password' }, { status: 401 });
+    const session = await auth();
+    if (session?.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const body = await req.json();
+    const { keyword, content } = body;
 
     if (!keyword || !content) {
       return NextResponse.json({ error: 'Keyword and content are required' }, { status: 400 });
