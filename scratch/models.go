@@ -75,6 +75,7 @@ type MQTTTelemetryPayload struct {
 	TCS34725_G int `json:"tcs_g,omitempty"`
 	TCS34725_B int `json:"tcs_b,omitempty"`
 	TCS34725_C int `json:"tcs_c,omitempty"`
+	StoreThis  bool `json:"store_this"`
 }
 
 type MQTTLogPayload struct {

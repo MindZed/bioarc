@@ -52,6 +52,7 @@ export function useWebSocket() {
               if (statusData === 'online' || statusData === 'offline') {
                 useStore.getState().addMaintenanceLog(`Device went ${statusData}`, statusData === 'offline' ? 'warning' : 'nominal');
                 useStore.setState({ fsmCurrentState: statusData === 'offline' ? 'OFFLINE' : 'IDLE' });
+                useStore.getState().setEspConnected(statusData === 'online');
                 return;
               }
             }
@@ -64,6 +65,7 @@ export function useWebSocket() {
                console.log("[WebSocket] Status Received:", event.data);
                useStore.getState().addMaintenanceLog(`Device went ${event.data}`, event.data === 'offline' ? 'warning' : 'nominal');
                useStore.setState({ fsmCurrentState: event.data === 'offline' ? 'OFFLINE' : 'IDLE' });
+               useStore.getState().setEspConnected(event.data === 'online');
                return;
             }
             console.error("[WebSocket] Failed to parse message:", err, event.data);

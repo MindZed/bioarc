@@ -14,6 +14,7 @@ if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
 
 interface BioArcStore {
   isWsConnected: boolean;
+  espConnected: boolean;
   telemetry: TelemetryData;
   fsm: FSMState;
   fsmCurrentState: string;
@@ -28,6 +29,7 @@ interface BioArcStore {
   
   // Real-time WebSocket Actions
   setWsConnected: (connected: boolean) => void;
+  setEspConnected: (connected: boolean) => void;
   handleLiveTelemetry: (data: any) => void;
   sendActionCommand: (action: string) => Promise<boolean>;
   sendConfigCommand: (config: any) => Promise<boolean>;
@@ -49,6 +51,7 @@ interface BioArcStore {
 
 export const useStore = create<BioArcStore>((set, get) => ({
   isWsConnected: false,
+  espConnected: true,
   telemetry: generateMockTelemetry(),
   fsm: generateMockFSM(),
   fsmCurrentState: 'IDLE',
@@ -62,6 +65,7 @@ export const useStore = create<BioArcStore>((set, get) => ({
   metricsData: generateMockMetricsData(7),
 
   setWsConnected: (connected) => set({ isWsConnected: connected }),
+  setEspConnected: (connected) => set({ espConnected: connected }),
   updateTelemetry: () => {},
   updateFSM: () => {},
 
@@ -75,7 +79,9 @@ export const useStore = create<BioArcStore>((set, get) => ({
       ambientTemp: t.airTemp ?? t.air_temp ?? state.telemetry.ambientTemp,
       humidity: t.humidity ?? state.telemetry.humidity,
       pressure: t.pressure ?? state.telemetry.pressure,
-      reservoirVolume: (t.levelCm !== undefined || t.level_cm !== undefined) ? Math.max(0, 100 - ((t.levelCm ?? t.level_cm) * (100 / 38))) : state.telemetry.reservoirVolume,
+      reservoirVolume: (t.levelCm !== undefined || t.level_cm !== undefined) 
+        ? Math.max(0, Math.min(100, ((34 - (t.levelCm ?? t.level_cm)) / 30) * 100)) 
+        : state.telemetry.reservoirVolume,
       algaeGrowthRate: state.telemetry.algaeGrowthRate, // Formulaic calculated rate
       predictedPh: t.predictedPh ?? t.predicted_ph ?? state.telemetry.predictedPh,
       predictedDo: t.predictedDo ?? t.predicted_do ?? state.telemetry.predictedDo,

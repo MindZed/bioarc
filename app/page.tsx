@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { motion, stagger, useAnimate } from "framer-motion";
 import { Bot, Leaf, ShieldAlert } from "lucide-react";
@@ -11,7 +11,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, YAxis } from "rec
 import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
-  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand, isWsConnected, maintenanceLogs } = useStore();
+  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand, isWsConnected, espConnected, maintenanceLogs, handleLiveTelemetry } = useStore();
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [configForm, setConfigForm] = useState({
     light_on: 6, light_off: 18, en_lights: true, en_air: true, en_agitator: true, en_refill: true, fill_pct: 100, color_mode: 0
@@ -32,13 +32,93 @@ export default function Dashboard() {
 
   const [fsmRuntime, setFsmRuntime] = useState(0);
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    const startTime = Date.now();
-    const timer = setInterval(() => {
-      setFsmRuntime(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [fsmCurrentState]);
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    if (fsmCurrentState === 'OFFLINE' || !espConnected) {
+       setFsmRuntime(0);
+       return;
+    }
+
+    let API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      API_URL = API_URL.replace('http://', 'https://').replace(':8080', '');
+    }
+
+    fetch(`${API_URL}/api/logs?limit=100`)
+      .then(res => res.json())
+      .then((data: any[]) => {
+         const targetStr = `State shifted to ${fsmCurrentState}`;
+         const found = data.find(l => l.message.includes(targetStr));
+         const startTime = found ? new Date(found.timestamp).getTime() : Date.now();
+         
+         setFsmRuntime(Math.floor((Date.now() - startTime) / 1000));
+         timerRef.current = setInterval(() => {
+           setFsmRuntime(Math.floor((Date.now() - startTime) / 1000));
+         }, 1000);
+      })
+      .catch(() => {
+         // Fallback if fetch fails
+         const startTime = Date.now();
+         timerRef.current = setInterval(() => {
+           setFsmRuntime(Math.floor((Date.now() - startTime) / 1000));
+         }, 1000);
+      });
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [fsmCurrentState, espConnected]);
+
+  // Offline Data Fetch
+  useEffect(() => {
+    if (!espConnected) {
+      let API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+        API_URL = API_URL.replace('http://', 'https://').replace(':8080', '');
+      }
+
+      fetch(`${API_URL}/api/telemetry/history?hours=24`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            const latest = data[0];
+            handleLiveTelemetry({
+              payload: {
+                 ...latest,
+                 water_temp: latest.waterTemp,
+                 air_temp: latest.airTemp,
+                 level_cm: latest.levelCm,
+                 relays: {
+                   intake: latest.relayIntake,
+                   outtake: latest.relayOuttake,
+                   air: latest.relayAir,
+                   light: latest.relayLight,
+                   agitator: latest.relayAgitator,
+                 }
+              }
+            });
+          }
+        })
+        .catch(console.error);
+
+      fetch(`${API_URL}/api/logs?limit=5`)
+        .then(res => res.json())
+        .then((data: any[]) => {
+           if (Array.isArray(data) && data.length > 0) {
+              useStore.setState({ maintenanceLogs: data.map(d => ({
+                id: d.id,
+                timestamp: new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                severity: d.level,
+                message: d.message
+              }))});
+           }
+        })
+        .catch(console.error);
+    }
+  }, [espConnected, handleLiveTelemetry]);
 
   const formatRuntime = (seconds: number) => {
     const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
@@ -74,6 +154,13 @@ export default function Dashboard() {
           100% { background-position: 100% 100%; }
         }
       `}</style>
+      
+      {!espConnected && (
+        <div className="bg-error text-white text-center py-2 text-xs font-bold uppercase tracking-widest shadow-md z-50 relative flex items-center justify-center gap-2">
+          <span className="material-symbols-outlined text-[16px]">wifi_off</span>
+          ESP32 Offline - Displaying Past Data
+        </div>
+      )}
       
       {!isWsConnected && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md">
@@ -183,14 +270,14 @@ export default function Dashboard() {
       <div className="bg-surface-container-lowest/50 backdrop-blur-sm border-b border-outline-variant px-6 max-md:px-4 py-2 flex max-md:overflow-x-auto no-scrollbar justify-between items-center text-[10px] font-medium tracking-wider uppercase text-on-surface-variant gap-6">
         <div className="flex gap-4 shrink-0">
           <div className="flex items-center">
-            <span className="animate-pulse bg-secondary-fixed-dim rounded-full w-1.5 h-1.5 inline-block mr-1.5"></span>
-            MQTT: Connected (12ms)
+            <span className={`animate-pulse ${isWsConnected ? 'bg-secondary-fixed-dim' : 'bg-error'} rounded-full w-1.5 h-1.5 inline-block mr-1.5`}></span>
+            API Link: {isWsConnected ? 'Connected' : 'Disconnected'}
           </div>
-          <div>ML Model Status: Active (94% Confidence)</div>
+          <div>ML Model: {isWsConnected ? 'Active (Real-time)' : 'Inactive'}</div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
-          <div>ESP32 Link: Strong (-60dBm)</div>
-          <div className="bg-primary/20 text-primary px-2 py-0.5 rounded-full">System State: {fsmCurrentState}</div>
+          <div>ESP32 Status: {espConnected ? 'Online' : 'Offline'}</div>
+          <div className={`${espConnected ? 'bg-primary/20 text-primary' : 'bg-error/20 text-error'} px-2 py-0.5 rounded-full`}>System State: {espConnected ? fsmCurrentState : 'OFFLINE'}</div>
         </div>
       </div>
 
@@ -391,8 +478,10 @@ export default function Dashboard() {
                 <div className="absolute -top-3 left-0 w-[200%] h-6 bg-secondary-fixed-dim" style={{ borderRadius: '43% 37% 0 0', transform: 'translateX(-10%)' }}></div>
               </div>
               <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                <span className="text-3xl font-bold text-on-surface drop-shadow-sm">{telemetry.reservoirVolume.toFixed(0)}%</span>
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Volume</span>
+                <span className="text-3xl font-bold text-on-surface drop-shadow-sm leading-none">{telemetry.reservoirVolume.toFixed(0)}%</span>
+                <span className="text-[11px] font-bold text-on-surface-variant bg-surface-container/50 px-1.5 py-0.5 rounded backdrop-blur-sm mt-1">
+                  {((telemetry.reservoirVolume / 100) * 7.0).toFixed(1)} L
+                </span>
               </div>
             </div>
             <div className="mt-2 flex items-center justify-between w-full text-[10px] font-semibold px-2">
@@ -455,24 +544,26 @@ export default function Dashboard() {
           </div>
 
           {/* 10. FSM State Runtime (Compact Timer) */}
-          <div className="max-md:order-10 col-span-2 md:col-span-3 lg:col-span-6 bg-surface-container-lowest rounded-2xl px-6 py-3 shadow-md text-on-surface flex motion-card min-h-0 font-clash relative overflow-hidden border border-primary/20 items-center justify-between opacity-0 hover:border-primary/40 transition-colors duration-300">
-            <div className="absolute inset-0 bg-primary/5"></div>
-            <div className="relative z-10 flex items-center gap-3">
-              <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant uppercase tracking-wider">FSM Runtime</h3>
-              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Active Phase</span>
-            </div>
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="text-[28px] font-bold tracking-tight text-on-surface font-mono">{formatRuntime(fsmRuntime)}</div>
-              <div className="flex gap-1.5">
-                <button className="w-8 h-8 rounded-full bg-surface-container text-primary flex items-center justify-center hover:bg-surface-variant transition-all shadow-sm hover:scale-105 active:scale-95 border border-primary/20">
-                  <span className="material-symbols-outlined fill text-[16px]">pause</span>
-                </button>
-                <button className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-all shadow-sm hover:scale-105 active:scale-95 border border-error/20">
-                  <span className="material-symbols-outlined fill text-[16px]">stop</span>
-                </button>
+          {espConnected && (
+            <div className="max-md:order-10 col-span-2 md:col-span-3 lg:col-span-6 bg-surface-container-lowest rounded-2xl px-6 py-3 shadow-md text-on-surface flex motion-card min-h-0 font-clash relative overflow-hidden border border-primary/20 items-center justify-between opacity-0 hover:border-primary/40 transition-colors duration-300">
+              <div className="absolute inset-0 bg-primary/5"></div>
+              <div className="relative z-10 flex items-center gap-3">
+                <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant uppercase tracking-wider">FSM Runtime</h3>
+                <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Active Phase</span>
+              </div>
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="text-[28px] font-bold tracking-tight text-on-surface font-mono">{formatRuntime(fsmRuntime)}</div>
+                <div className="flex gap-1.5">
+                  <button className="w-8 h-8 rounded-full bg-surface-container text-primary flex items-center justify-center hover:bg-surface-variant transition-all shadow-sm hover:scale-105 active:scale-95 border border-primary/20">
+                    <span className="material-symbols-outlined fill text-[16px]">pause</span>
+                  </button>
+                  <button className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-all shadow-sm hover:scale-105 active:scale-95 border border-error/20">
+                    <span className="material-symbols-outlined fill text-[16px]">stop</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>
