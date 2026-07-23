@@ -29,13 +29,41 @@ export function useWebSocket() {
           useStore.getState().setWsConnected(true);
         };
 
-        socket.onmessage = (event) => {
+          socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            
+            // Check if this is a log event (either wrapped with type='log' or raw with 'level'/'msg')
+            if (data.type === 'log' || data.level || data.msg) {
+              const logData = data.payload || data;
+              console.log("[WebSocket] Log Received:", logData);
+              let severity: 'nominal' | 'warning' | 'critical' = 'nominal';
+              if (logData.level === 'warning') severity = 'warning';
+              if (logData.level === 'critical' || logData.level === 'error') severity = 'critical';
+              useStore.getState().addMaintenanceLog(logData.msg || JSON.stringify(logData), severity);
+              return;
+            }
+
+            // Check if this is a status event (online/offline)
+            if (data.type === 'status' || typeof data === 'string' || data.status) {
+              const statusData = typeof data === 'string' ? data : (data.payload || data.status);
+              console.log("[WebSocket] Status Received:", statusData);
+              if (statusData === 'online' || statusData === 'offline') {
+                useStore.getState().addMaintenanceLog(`Device went ${statusData}`, statusData === 'offline' ? 'warning' : 'nominal');
+                return;
+              }
+            }
+
             console.log("[WebSocket] Live Telemetry Packet Received:", data);
             useStore.getState().handleLiveTelemetry(data);
           } catch (err) {
-            console.error("[WebSocket] Failed to parse JSON message:", err);
+            // If it's a plain string like "online" or "offline" (LWT)
+            if (event.data === 'online' || event.data === 'offline') {
+               console.log("[WebSocket] Status Received:", event.data);
+               useStore.getState().addMaintenanceLog(`Device went ${event.data}`, event.data === 'offline' ? 'warning' : 'nominal');
+               return;
+            }
+            console.error("[WebSocket] Failed to parse message:", err, event.data);
           }
         };
 

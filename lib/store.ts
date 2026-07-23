@@ -30,6 +30,7 @@ interface BioArcStore {
   setWsConnected: (connected: boolean) => void;
   handleLiveTelemetry: (data: any) => void;
   sendActionCommand: (action: string) => Promise<boolean>;
+  sendConfigCommand: (config: any) => Promise<boolean>;
   updateTelemetry: () => void;
   updateFSM: () => void;
   
@@ -116,6 +117,30 @@ export const useStore = create<BioArcStore>((set, get) => ({
     } catch (err) {
       console.error(`[API Command] Network error sending command:`, err);
       get().addMaintenanceLog(`Network error sending command: ${action}`, 'critical');
+      return false;
+    }
+  },
+
+  sendConfigCommand: async (config: any) => {
+    try {
+      console.log(`[API Command] Sending config to ${API_BASE_URL}/api/config:`, config);
+      const response = await fetch(`${API_BASE_URL}/api/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (response.ok) {
+        console.log(`[API Command] Config updated successfully!`);
+        get().addMaintenanceLog(`Config updated successfully`, 'nominal');
+        return true;
+      } else {
+        console.error(`[API Command] Config failed with status ${response.status}`);
+        get().addMaintenanceLog(`Config update failed`, 'warning');
+        return false;
+      }
+    } catch (err) {
+      console.error(`[API Command] Network error sending config:`, err);
+      get().addMaintenanceLog(`Network error sending config`, 'critical');
       return false;
     }
   },

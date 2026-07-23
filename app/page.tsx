@@ -11,7 +11,11 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, YAxis } from "rec
 import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
-  const { telemetry, fsm, updateTelemetry } = useStore();
+  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand } = useStore();
+  const [showControlPanel, setShowControlPanel] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    light_on: 6, light_off: 18, en_lights: true, en_air: true, en_agitator: true, en_refill: true, fill_pct: 100, color_mode: 0
+  });
   const { data: session } = useSession();
   const [scope, animate] = useAnimate();
   const [mounted, setMounted] = useState(false);
@@ -47,6 +51,105 @@ export default function Dashboard() {
 
   return (
     <div ref={scope}>
+      <style>{`
+        @keyframes fillAnimation {
+          0% { background-position: 0 0; }
+          100% { background-position: 100% 100%; }
+        }
+      `}</style>
+      
+      {fsmCurrentState === 'AWAIT' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface-container-low border border-outline-variant rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 text-primary mb-4">
+              <span className="material-symbols-outlined text-3xl">water_drop</span>
+              <h2 className="text-xl font-bold font-clash">Commissioning Fill</h2>
+            </div>
+            <p className="text-sm text-on-surface-variant mb-6">
+              The BioArc is awaiting commissioning. Please select the target fill level to begin the process.
+            </p>
+            <div className="space-y-3">
+              <button onClick={() => { sendActionCommand('set_fill_100').then(() => sendActionCommand('fill')); }} className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-semibold border border-primary/20 transition-colors">Full (100%)</button>
+              <button onClick={() => { sendActionCommand('set_fill_50').then(() => sendActionCommand('fill')); }} className="w-full py-3 bg-secondary-fixed/10 hover:bg-secondary-fixed/20 text-secondary-fixed rounded-xl font-semibold border border-secondary/20 transition-colors">Partial (50%)</button>
+              <button onClick={() => { sendActionCommand('set_fill_20').then(() => sendActionCommand('fill')); }} className="w-full py-3 bg-surface-variant hover:bg-surface-container-high text-on-surface rounded-xl font-semibold border border-outline-variant transition-colors">Starter (20%)</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showControlPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+              <h2 className="text-lg font-bold text-on-surface font-clash flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">settings_applications</span>
+                Control Panel
+              </h2>
+              <button onClick={() => setShowControlPanel(false)} className="p-1 hover:bg-surface-variant rounded-lg text-on-surface-variant transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => sendActionCommand('drain_all')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Drain All</button>
+                  <button onClick={() => sendActionCommand('drain_partial')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Drain Partial</button>
+                  <button onClick={() => sendActionCommand('agitate')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Agitate (60s)</button>
+                  <button onClick={() => sendActionCommand('clear_hazard')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Clear Hazard</button>
+                  <button onClick={() => sendActionCommand('restart')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Restart ESP32</button>
+                  <button onClick={() => sendActionCommand('emergency_stop')} className="py-2.5 bg-error/10 hover:bg-error/20 text-error rounded-xl text-sm font-bold border border-error/20 transition-colors">EMERGENCY STOP</button>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">Device Configuration</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] text-on-surface-variant mb-1">Light On (Hour)</label>
+                      <input type="number" min="0" max="23" value={configForm.light_on} onChange={e => setConfigForm({...configForm, light_on: parseInt(e.target.value)})} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-on-surface-variant mb-1">Light Off (Hour)</label>
+                      <input type="number" min="0" max="23" value={configForm.light_off} onChange={e => setConfigForm({...configForm, light_off: parseInt(e.target.value)})} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-on-surface-variant mb-1">Fill Percentage</label>
+                      <input type="number" min="1" max="100" value={configForm.fill_pct} onChange={e => setConfigForm({...configForm, fill_pct: parseInt(e.target.value)})} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-on-surface-variant mb-1">Color Mode</label>
+                      <select value={configForm.color_mode} onChange={e => setConfigForm({...configForm, color_mode: parseInt(e.target.value)})} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-sm">
+                        <option value={0}>Grow Lights (0)</option>
+                        <option value={1}>Built-in LED (1)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configForm.en_lights} onChange={e => setConfigForm({...configForm, en_lights: e.target.checked})} className="accent-primary w-4 h-4" /> Enable Lights
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configForm.en_air} onChange={e => setConfigForm({...configForm, en_air: e.target.checked})} className="accent-primary w-4 h-4" /> Enable Air
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configForm.en_agitator} onChange={e => setConfigForm({...configForm, en_agitator: e.target.checked})} className="accent-primary w-4 h-4" /> Enable Agitator
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configForm.en_refill} onChange={e => setConfigForm({...configForm, en_refill: e.target.checked})} className="accent-primary w-4 h-4" /> Auto Refill
+                    </label>
+                  </div>
+                  <button onClick={() => sendConfigCommand(configForm)} className="w-full mt-4 py-2 bg-primary text-on-primary rounded-xl font-semibold shadow-sm hover:scale-[0.98] transition-transform">
+                    Save Configuration
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Top Status Bar */}
       <div className="bg-surface-container-lowest/50 backdrop-blur-sm border-b border-outline-variant px-6 max-md:px-4 py-2 flex max-md:overflow-x-auto no-scrollbar justify-between items-center text-[10px] font-medium tracking-wider uppercase text-on-surface-variant gap-6">
         <div className="flex gap-4 shrink-0">
@@ -58,7 +161,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div>ESP32 Link: Strong (-60dBm)</div>
-          <div className="bg-primary/20 text-primary px-2 py-0.5 rounded-full">System Mode: {fsm.mode}</div>
+          <div className="bg-primary/20 text-primary px-2 py-0.5 rounded-full">System State: {fsmCurrentState}</div>
         </div>
       </div>
 
@@ -74,14 +177,11 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-1.5 bg-primary-container text-on-primary-container px-5 py-2.5 rounded-lg text-[14px] font-bold hover:bg-primary hover:text-on-primary transition-all duration-200 hover:scale-95">
+          <button onClick={() => setShowControlPanel(true)} className="flex items-center gap-1.5 bg-primary-container text-on-primary-container px-5 py-2.5 rounded-lg text-[14px] font-bold hover:bg-primary hover:text-on-primary transition-all duration-200 hover:scale-95">
             <span className="material-symbols-outlined text-sm">settings_suggest</span>
-            Manual Override Mode
+            Control Panel
           </button>
           <div className="flex items-center gap-1.5 ml-4 border-l border-outline-variant pl-4">
-            <button className="p-1.5 text-on-surface-variant hover:bg-primary/10 hover:text-primary rounded-lg transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
             <button className="p-1.5 text-on-surface-variant hover:bg-primary/10 hover:text-primary rounded-lg transition-colors">
               <span className="material-symbols-outlined">account_circle</span>
             </button>
@@ -247,6 +347,9 @@ export default function Dashboard() {
             <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant absolute top-4 left-4 uppercase tracking-wider">Reservoir Level</h3>
             <div className="relative w-28 h-40 mt-6 border-4 border-surface-container-highest rounded-2xl overflow-hidden bg-surface-container shadow-inner">
               <div className="absolute bottom-0 left-0 w-full bg-secondary-fixed-dim transition-all duration-1000 ease-in-out" style={{ height: `${telemetry.reservoirVolume}%` }}>
+                {fsmCurrentState === 'COMM_FILL' && (
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMTAiIGN5PSIxMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsIDI1NSwgMjU1LCAwLjQpIi8+PC9zdmc+')] animate-[fillAnimation_2s_linear_infinite] opacity-50"></div>
+                )}
                 <div className="absolute -top-2 left-0 w-[200%] h-6 bg-secondary-fixed-dim opacity-50 animate-pulse" style={{ borderRadius: '38% 42% 0 0', transform: 'translateX(-25%)' }}></div>
                 <div className="absolute -top-3 left-0 w-[200%] h-6 bg-secondary-fixed-dim" style={{ borderRadius: '43% 37% 0 0', transform: 'translateX(-10%)' }}></div>
               </div>
