@@ -83,35 +83,50 @@ export const getBioarcTools = (userRole?: string) => ({
   toggleActuator: tool({
     description: "Turn physical hardware devices on or off in the bioreactor.",
     parameters: z.object({
-      device: z.enum(['Pump_12V', 'Wiper_Servo', 'LED_Grow']),
-      state: z.boolean(),
+      action: z.enum(['intake_on', 'intake_off', 'outtake_on', 'outtake_off', 'air_on', 'air_off', 'light_on', 'light_off', 'agitator_on', 'agitator_off', 'drain_all', 'drain_partial', 'emergency_stop', 'clear_hazard', 'restart']),
     }),
     // @ts-ignore - TS fails to resolve the tool overload properly with explicit types
-    execute: async ({ device, state }: { device: 'Pump_12V' | 'Wiper_Servo' | 'LED_Grow', state: boolean }) => {
+    execute: async ({ action }: { action: string }) => {
       if (userRole !== 'ADMIN') {
         return `Error: Unauthorized. Only Admins can control hardware.`;
       }
-      console.log('[TOOL] ⚙️ toggleActuator triggered for:', device);
-      // Simulate network latency
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('[TOOL] ✅ toggleActuator completed');
-      return `Successfully set ${device} to ${state ? 'ON' : 'OFF'}.`;
+      console.log('[TOOL] ⚙️ toggleActuator triggered for:', action);
+      try {
+        let API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+        const response = await fetch(`${API_URL}/api/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        });
+        if (response.ok) {
+           console.log('[TOOL] ✅ toggleActuator completed');
+           return `Successfully executed ${action}.`;
+        }
+        return `Failed to execute ${action}. Backend returned status ${response.status}.`;
+      } catch (err: any) {
+        return `Network error sending command: ${err.message}`;
+      }
     },
   }),
 
   getTelemetry: tool({
-    description: "Get the current live sensor readings from the bioreactor.",
+    description: "Get the current live sensor readings and state from the bioreactor.",
     parameters: z.object({}),
     // @ts-ignore - TS fails to resolve the tool overload properly with explicit types
     execute: async (_args: {}) => {
       console.log('[TOOL] 📊 getTelemetry triggered');
-      console.log('[TOOL] ✅ getTelemetry completed');
-      return {
-        waterTemp: 24.5,
-        pH: 7.2,
-        dissolvedOxygen: 8.5,
-        algaeGrowthRate: 1.2
-      };
+      try {
+        const latestTelemetry = await prisma.telemetry.findFirst({
+          orderBy: { timestamp: 'desc' }
+        });
+        if (!latestTelemetry) {
+           return "No telemetry data found in the database.";
+        }
+        console.log('[TOOL] ✅ getTelemetry completed');
+        return JSON.stringify(latestTelemetry);
+      } catch (e: any) {
+        return `Database error: ${e.message}`;
+      }
     },
   }),
 });

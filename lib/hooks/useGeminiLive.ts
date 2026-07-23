@@ -189,16 +189,12 @@ export function useGeminiLive(voiceName: string = 'Fenrir') {
                     parameters: {
                       type: "OBJECT",
                       properties: {
-                        device: {
+                        action: {
                           type: "STRING",
-                          description: "The device to control (Pump_12V, Wiper_Servo, LED_Grow)"
-                        },
-                        state: {
-                          type: "BOOLEAN",
-                          description: "The state to set the device to (true for ON, false for OFF)"
+                          description: "The action to execute (e.g. intake_on, intake_off, outtake_on, outtake_off, air_on, air_off, light_on, light_off, agitator_on, agitator_off, drain_all, drain_partial, emergency_stop, clear_hazard, restart)"
                         }
                       },
-                      required: ["device", "state"]
+                      required: ["action"]
                     }
                   }
                 ]
