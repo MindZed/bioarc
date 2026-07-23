@@ -11,7 +11,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, YAxis } from "rec
 import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
-  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand, isWsConnected } = useStore();
+  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand, isWsConnected, maintenanceLogs } = useStore();
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [configForm, setConfigForm] = useState({
     light_on: 6, light_off: 18, en_lights: true, en_air: true, en_agitator: true, en_refill: true, fill_pct: 100, color_mode: 0
@@ -319,9 +319,9 @@ export default function Dashboard() {
             <ul className={`flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-1 ${session?.user?.role !== 'ADMIN' ? 'opacity-20 pointer-events-none' : ''}`}>
               <ActuatorItem name="Inlet Pump" icon="water_pump" active={fsm.inletPump} />
               <ActuatorItem name="Outlet Pump" icon="valve" active={fsm.outletPump} />
-              <ActuatorItem name="Air Compressor" icon="air" active={fsm.airCompressor} />
-              <ActuatorItem name="LED Panel A" icon="light_mode" active={fsm.ledPanels} />
-              <ActuatorItem name="LED Panel B" icon="lightbulb" active={false} />
+              <ActuatorItem name="Air Pump" icon="air" active={fsm.airCompressor} />
+              <ActuatorItem name="LED Panel" icon="light_mode" active={fsm.ledPanels} />
+              <ActuatorItem name="Agitator" icon="cyclone" active={fsm.agitator} />
             </ul>
           </div>
 
@@ -354,9 +354,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 9. Reservoir Level (Gauge) */}
+          {/* 9. Reactor Level (Gauge) */}
           <div className="max-md:order-8 col-span-2 md:col-span-3 lg:col-span-2 bg-surface-container-lowest border border-outline-variant flex flex-col items-center justify-center motion-card min-h-0 font-clash relative shadow-md p-4 rounded-2xl opacity-0 hover:border-outline/50 transition-colors duration-300">
-            <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant absolute top-4 left-4 uppercase tracking-wider">Reservoir Level</h3>
+            <h3 className="font-satoshi text-[13px] font-semibold text-on-surface-variant absolute top-4 left-4 uppercase tracking-wider">Reactor Level</h3>
             <div className="relative w-28 h-40 mt-6 border-4 border-surface-container-highest rounded-2xl overflow-hidden bg-surface-container shadow-inner">
               <div className="absolute bottom-0 left-0 w-full bg-secondary-fixed-dim transition-all duration-1000 ease-in-out" style={{ height: `${telemetry.reservoirVolume}%` }}>
                 {fsmCurrentState === 'COMM_FILL' && (
@@ -416,9 +416,16 @@ export default function Dashboard() {
               <button className="border border-outline-variant px-2 py-0.5 rounded-full text-[10px] font-semibold text-on-surface-variant hover:bg-surface-container transition-colors">View All</button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-1">
-              <LogItem message="State shifted to AGITATING" time="05:14 PM" type="System" active={fsm.agitator} color="bg-primary" />
-              <LogItem message="Water level refreshed" time="04:30 PM" type="Success" active={true} color="bg-secondary-fixed-dim" />
-              <LogItem message="pH recalibrated via ML" time="03:15 PM" type="Info" active={true} color="bg-surface-variant" />
+              {maintenanceLogs.slice(0, 5).map((log) => (
+                <LogItem 
+                  key={log.id} 
+                  message={log.message} 
+                  time={log.timestamp} 
+                  type={log.severity === 'nominal' ? 'System' : log.severity === 'warning' ? 'Warning' : 'Critical'} 
+                  active={true} 
+                  color={log.severity === 'nominal' ? 'bg-primary' : log.severity === 'warning' ? 'bg-secondary-fixed-dim' : 'bg-error'} 
+                />
+              ))}
             </div>
           </div>
 
