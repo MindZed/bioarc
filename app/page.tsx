@@ -20,44 +20,32 @@ export default function Dashboard() {
   const [scope, animate] = useAnimate();
   const [mounted, setMounted] = useState(false);
 
-  const [biomassChartData, setBiomassChartData] = useState([
-    { day: "Sun", value: 0 },
-    { day: "Mon", value: 0 },
-    { day: "Tue", value: 0 },
-    { day: "Wed", value: 0 },
-    { day: "Thu", value: 0 },
-    { day: "Fri", value: 0 },
-    { day: "Sat", value: 0 },
-  ]);
+  const biomassChartData = [
+    { day: "Sun", value: 30 },
+    { day: "Mon", value: 45 },
+    { day: "Tue", value: 70 },
+    { day: "Wed", value: 85 },
+    { day: "Thu", value: 82 },
+    { day: "Fri", value: 92 },
+    { day: "Sat", value: 95 },
+  ];
+
+  const [fsmRuntime, setFsmRuntime] = useState(0);
 
   useEffect(() => {
-    let API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
-    if (window.location.protocol === 'https:') {
-      API_URL = API_URL.replace('http://', 'https://').replace(':8080', '');
-    }
-    fetch(`${API_URL}/api/telemetry/history?hours=168`)
-      .then(r => r.json())
-      .then(data => {
-        if (!Array.isArray(data)) return;
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const grouped: Record<string, number[]> = { Sun: [], Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
-        
-        data.forEach((entry: any) => {
-          const dayName = days[new Date(entry.timestamp).getDay()];
-          // Use predictedDo as a proxy for Biomass (scaled to 0-100)
-          grouped[dayName].push((entry.predictedDo || 0) * 10);
-        });
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      setFsmRuntime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [fsmCurrentState]);
 
-        const newChartData = days.map(day => {
-          const vals = grouped[day];
-          const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-          return { day, value: Math.round(avg) };
-        });
-        
-        setBiomassChartData(newChartData);
-      })
-      .catch(console.error);
-  }, []);
+  const formatRuntime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -474,7 +462,7 @@ export default function Dashboard() {
               <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Active Phase</span>
             </div>
             <div className="relative z-10 flex items-center gap-4">
-              <div className="text-[28px] font-bold tracking-tight text-on-surface font-mono">01:24:08</div>
+              <div className="text-[28px] font-bold tracking-tight text-on-surface font-mono">{formatRuntime(fsmRuntime)}</div>
               <div className="flex gap-1.5">
                 <button className="w-8 h-8 rounded-full bg-surface-container text-primary flex items-center justify-center hover:bg-surface-variant transition-all shadow-sm hover:scale-105 active:scale-95 border border-primary/20">
                   <span className="material-symbols-outlined fill text-[16px]">pause</span>
