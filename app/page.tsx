@@ -317,12 +317,20 @@ export default function Dashboard() {
               </div>
             </div>
             <ul className={`flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-1 ${session?.user?.role !== 'ADMIN' ? 'opacity-20 pointer-events-none' : ''}`}>
-              <ActuatorItem name="Inlet Pump" icon="water_pump" active={fsm.inletPump} />
-              <ActuatorItem name="Outlet Pump" icon="valve" active={fsm.outletPump} />
-              <ActuatorItem name="Air Pump" icon="air" active={fsm.airCompressor} />
-              <ActuatorItem name="LED Panel" icon="light_mode" active={fsm.ledPanels} />
-              <ActuatorItem name="Agitator" icon="cyclone" active={fsm.agitator} />
+              <ActuatorItem name="Inlet Pump" icon="water_pump" active={fsm.inletPump} isManual={fsmCurrentState === 'MANUAL'} onClick={() => sendActionCommand(fsm.inletPump ? 'intake_off' : 'intake_on')} />
+              <ActuatorItem name="Outlet Pump" icon="valve" active={fsm.outletPump} isManual={fsmCurrentState === 'MANUAL'} onClick={() => sendActionCommand(fsm.outletPump ? 'outtake_off' : 'outtake_on')} />
+              <ActuatorItem name="Air Pump" icon="air" active={fsm.airCompressor} isManual={fsmCurrentState === 'MANUAL'} onClick={() => sendActionCommand(fsm.airCompressor ? 'air_off' : 'air_on')} />
+              <ActuatorItem name="LED Panel" icon="light_mode" active={fsm.ledPanels} isManual={fsmCurrentState === 'MANUAL'} onClick={() => sendActionCommand(fsm.ledPanels ? 'light_off' : 'light_on')} />
+              <ActuatorItem name="Agitator" icon="cyclone" active={fsm.agitator} isManual={fsmCurrentState === 'MANUAL'} onClick={() => sendActionCommand(fsm.agitator ? 'agitator_off' : 'agitator_on')} />
             </ul>
+            {session?.user?.role === 'ADMIN' && (
+              <div className="mt-3 pt-3 border-t border-outline-variant/50">
+                 <button onClick={() => sendActionCommand(fsmCurrentState === 'MANUAL' ? 'manual_mode_off' : 'manual_mode_on')} className={`w-full py-2 rounded-xl text-[11px] font-bold tracking-wider uppercase transition-all duration-200 flex items-center justify-center gap-2 ${fsmCurrentState === 'MANUAL' ? 'bg-primary text-on-primary shadow-md hover:bg-primary/90' : 'bg-surface-container hover:bg-surface-variant text-on-surface-variant'}`}>
+                   <span className="material-symbols-outlined text-[16px]">{fsmCurrentState === 'MANUAL' ? 'lock_open' : 'lock'}</span>
+                   {fsmCurrentState === 'MANUAL' ? 'Disable Manual Override' : 'Enable Manual Override'}
+                 </button>
+              </div>
+            )}
           </div>
 
           {/* 5. Biomass Trends (Chart) */}
@@ -455,9 +463,9 @@ export default function Dashboard() {
   );
 }
 
-function ActuatorItem({ name, icon, active }: { name: string, icon: string, active: boolean }) {
+function ActuatorItem({ name, icon, active, isManual, onClick }: { name: string, icon: string, active: boolean, isManual?: boolean, onClick?: () => void }) {
   return (
-    <li className="flex items-center justify-between p-2 hover:bg-surface-container rounded-xl transition-all duration-200 cursor-pointer group">
+    <li onClick={isManual ? onClick : undefined} className={`flex items-center justify-between p-2 rounded-xl transition-all duration-200 ${isManual ? 'hover:bg-primary/10 cursor-pointer border border-primary/20' : 'hover:bg-surface-container cursor-default border border-transparent'} group`}>
       <div className="flex items-center gap-2.5">
         <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
           active ? 'bg-secondary-fixed/20 text-secondary-fixed' : 'bg-surface-container text-on-surface-variant group-hover:text-primary'
@@ -466,11 +474,20 @@ function ActuatorItem({ name, icon, active }: { name: string, icon: string, acti
         </div>
         <span className="text-[13px] text-on-surface font-medium">{name}</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-secondary-fixed-dim' : 'bg-surface-container-high'}`}></span>
-        <span className={`text-[10px] font-semibold ${active ? 'text-secondary-fixed' : 'text-on-surface-variant'}`}>
-          {active ? 'Active' : 'Idle'}
-        </span>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-secondary-fixed-dim' : 'bg-surface-container-high'}`}></span>
+          <span className={`text-[10px] font-semibold ${active ? 'text-secondary-fixed' : 'text-on-surface-variant'}`}>
+            {active ? 'Active' : 'Idle'}
+          </span>
+        </div>
+        {isManual && (
+          <div className="ml-2">
+             <div className={`w-8 h-4 rounded-full flex items-center p-0.5 transition-colors duration-300 ${active ? 'bg-primary' : 'bg-surface-container-highest'}`}>
+               <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-300 ${active ? 'translate-x-4' : 'translate-x-0'}`}></div>
+             </div>
+          </div>
+        )}
       </div>
     </li>
   );
