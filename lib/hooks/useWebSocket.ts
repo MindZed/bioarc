@@ -14,7 +14,11 @@ export function useWebSocket() {
       try {
         let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "wss://droplet.sewen.me/ws";
         
-        // Auto-upgrade handled by default now to avoid port 8080 unencrypted websocket hangs
+        // Force upgrade to wss:// for droplet.sewen.me to fix Vercel Mixed Content errors 
+        // AND local ISP firewall timeout drops on port 8080.
+        if (wsUrl.includes("droplet.sewen.me")) {
+          wsUrl = wsUrl.replace("ws://", "wss://").replace(":8080", "");
+        }
 
         console.log("[WebSocket] Connecting to Go Backend:", wsUrl);
         const socket = new WebSocket(wsUrl);
