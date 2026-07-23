@@ -11,7 +11,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, YAxis } from "rec
 import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
-  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand } = useStore();
+  const { telemetry, fsm, updateTelemetry, fsmCurrentState, sendActionCommand, sendConfigCommand, isWsConnected } = useStore();
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [configForm, setConfigForm] = useState({
     light_on: 6, light_off: 18, en_lights: true, en_air: true, en_agitator: true, en_refill: true, fill_pct: 100, color_mode: 0
@@ -58,6 +58,18 @@ export default function Dashboard() {
         }
       `}</style>
       
+      {!isWsConnected && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md">
+          <div className="flex flex-col items-center bg-surface-container-low p-8 rounded-2xl shadow-2xl border border-outline-variant/50 max-w-sm w-full mx-4">
+            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6"></div>
+            <h2 className="text-xl font-bold font-clash text-on-surface mb-2">Connecting to BioArc</h2>
+            <p className="text-sm text-on-surface-variant text-center leading-relaxed">
+              Establishing a secure connection to the hardware telemetry stream...
+            </p>
+          </div>
+        </div>
+      )}
+
       {fsmCurrentState === 'AWAIT' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-surface-container-low border border-outline-variant rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4">

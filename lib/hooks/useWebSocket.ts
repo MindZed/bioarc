@@ -11,13 +11,9 @@ export function useWebSocket() {
 
   useEffect(() => {
     function connect() {
-      try {
-        let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "ws://droplet.sewen.me:8080/ws";
+        let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "wss://droplet.sewen.me/ws";
         
-        // Auto-upgrade to wss:// and remove port 8080 to hit the Nginx reverse proxy on 443
-        if (typeof window !== "undefined" && window.location.protocol === "https:") {
-          wsUrl = wsUrl.replace("ws://", "wss://").replace(":8080", "");
-        }
+        // Auto-upgrade handled by default now to avoid port 8080 unencrypted websocket hangs
 
         console.log("[WebSocket] Connecting to Go Backend:", wsUrl);
         const socket = new WebSocket(wsUrl);
