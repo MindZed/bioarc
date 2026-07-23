@@ -11,6 +11,7 @@ export function useWebSocket() {
 
   useEffect(() => {
     function connect() {
+      try {
         let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "wss://droplet.sewen.me/ws";
         
         // Auto-upgrade handled by default now to avoid port 8080 unencrypted websocket hangs
