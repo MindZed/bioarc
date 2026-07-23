@@ -20,15 +20,44 @@ export default function Dashboard() {
   const [scope, animate] = useAnimate();
   const [mounted, setMounted] = useState(false);
 
-  const biomassChartData = [
-    { day: "Sun", value: 30 },
-    { day: "Mon", value: 45 },
-    { day: "Tue", value: 70 },
-    { day: "Wed", value: 85 },
-    { day: "Thu", value: 82 },
-    { day: "Fri", value: 92 },
-    { day: "Sat", value: 95 },
-  ];
+  const [biomassChartData, setBiomassChartData] = useState([
+    { day: "Sun", value: 0 },
+    { day: "Mon", value: 0 },
+    { day: "Tue", value: 0 },
+    { day: "Wed", value: 0 },
+    { day: "Thu", value: 0 },
+    { day: "Fri", value: 0 },
+    { day: "Sat", value: 0 },
+  ]);
+
+  useEffect(() => {
+    let API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+    if (window.location.protocol === 'https:') {
+      API_URL = API_URL.replace('http://', 'https://').replace(':8080', '');
+    }
+    fetch(`${API_URL}/api/telemetry/history?hours=168`)
+      .then(r => r.json())
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const grouped: Record<string, number[]> = { Sun: [], Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
+        
+        data.forEach((entry: any) => {
+          const dayName = days[new Date(entry.timestamp).getDay()];
+          // Use predictedDo as a proxy for Biomass (scaled to 0-100)
+          grouped[dayName].push((entry.predictedDo || 0) * 10);
+        });
+
+        const newChartData = days.map(day => {
+          const vals = grouped[day];
+          const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+          return { day, value: Math.round(avg) };
+        });
+        
+        setBiomassChartData(newChartData);
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
