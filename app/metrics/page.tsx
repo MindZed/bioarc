@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Download, Activity, Thermometer, Droplets, Wind, Focus, Cloud, Gauge } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
 
 // Custom Tooltip component for Recharts
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -164,8 +164,7 @@ export default function MetricsPage() {
         
         // Add chart screenshot if possible
         if (chartRef.current) {
-          const canvas = await html2canvas(chartRef.current, { backgroundColor: '#000000' });
-          const imgData = canvas.toDataURL('image/png');
+          const imgData = await htmlToImage.toPng(chartRef.current, { backgroundColor: '#000000' });
           doc.addImage(imgData, 'PNG', 14, 35, 260, 80);
         }
 
