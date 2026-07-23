@@ -4,8 +4,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 
-const WS_URL = process.env.NEXT_PUBLIC_GO_WS_URL || "ws://droplet.sewen.me:8080/ws";
-
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -14,8 +12,15 @@ export function useWebSocket() {
   useEffect(() => {
     function connect() {
       try {
-        console.log("[WebSocket] Connecting to Go Backend:", WS_URL);
-        const socket = new WebSocket(WS_URL);
+        let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "ws://droplet.sewen.me:8080/ws";
+        
+        // Auto-upgrade to wss:// if the page is loaded over HTTPS to fix Mixed Content errors
+        if (typeof window !== "undefined" && window.location.protocol === "https:") {
+          wsUrl = wsUrl.replace("ws://", "wss://");
+        }
+
+        console.log("[WebSocket] Connecting to Go Backend:", wsUrl);
+        const socket = new WebSocket(wsUrl);
         socketRef.current = socket;
 
         socket.onopen = () => {
