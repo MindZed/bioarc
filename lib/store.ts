@@ -6,7 +6,11 @@ import {
   generateMockMaintenanceData, generateMockMetricsData 
 } from './mockData';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+let API_BASE_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://droplet.sewen.me:8080';
+
+if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+  API_BASE_URL = API_BASE_URL.replace('http://', 'https://').replace(':8080', '');
+}
 
 interface BioArcStore {
   isWsConnected: boolean;

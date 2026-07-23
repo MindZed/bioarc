@@ -14,9 +14,9 @@ export function useWebSocket() {
       try {
         let wsUrl = process.env.NEXT_PUBLIC_GO_WS_URL || "ws://droplet.sewen.me:8080/ws";
         
-        // Auto-upgrade to wss:// if the page is loaded over HTTPS to fix Mixed Content errors
+        // Auto-upgrade to wss:// and remove port 8080 to hit the Nginx reverse proxy on 443
         if (typeof window !== "undefined" && window.location.protocol === "https:") {
-          wsUrl = wsUrl.replace("ws://", "wss://");
+          wsUrl = wsUrl.replace("ws://", "wss://").replace(":8080", "");
         }
 
         console.log("[WebSocket] Connecting to Go Backend:", wsUrl);
