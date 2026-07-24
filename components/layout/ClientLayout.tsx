@@ -94,7 +94,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       
       <div className={`flex overflow-hidden w-full h-full transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
         <Sidebar />
-        <main className={`max-md:ml-0 ${marginLeftClass} flex-1 flex flex-col h-screen overflow-y-auto bg-surface-container-low transition-all duration-300 ease-in-out w-full`}>
+        <main className={`max-md:ml-0 ${marginLeftClass} flex-1 flex flex-col h-[100dvh] overflow-y-auto bg-surface-container-low transition-all duration-300 ease-in-out w-full`}>
           {children}
         </main>
       </div>

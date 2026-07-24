@@ -12,12 +12,9 @@ import { DefaultChatTransport, UIMessage } from 'ai';
 import { VoiceChatModal } from '@/components/chatbot/VoiceChatModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+
 
 export default function ChatbotPage() {
-  const { data: session, status: authStatus } = useSession();
-  const router = useRouter();
 
   const {
     chatHistory, activeSessionId, fastMode,
@@ -230,7 +227,7 @@ export default function ChatbotPage() {
           }`}
       >
         {fastMode ? <Zap className="w-3.5 h-3.5" /> : <BrainCircuit className="w-3.5 h-3.5" />}
-        {fastMode ? 'FAST' : 'DEEP'}
+        <span className="max-sm:hidden">{fastMode ? 'FAST' : 'DEEP'}</span>
       </button>
       <input
         type="text"
@@ -238,7 +235,7 @@ export default function ChatbotPage() {
         onChange={(e) => setInput(e.target.value)}
         placeholder={activeSession ? "Command the bioreactor..." : "Start a session to begin..."}
         disabled={!activeSession || isLoading}
-        className="w-full bg-white/[0.02] rounded-full pl-[100px] py-4 pr-[100px] text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+        className="w-full bg-white/[0.02] rounded-full pl-[100px] max-sm:pl-[60px] py-4 pr-[100px] max-sm:pr-[90px] text-white placeholder-zinc-500 font-satoshi focus:outline-none focus:bg-white/[0.04] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner focus:shadow-[0_0_30px_rgba(16,185,129,0.1)] text-sm md:text-base"
       />
       <button
         type="button"
@@ -261,19 +258,19 @@ export default function ChatbotPage() {
   );
 
   return (
-    <div className="flex-1 flex overflow-hidden p-6 max-md:p-0 gap-6 min-h-0 h-full relative">
+    <div className="flex-1 flex overflow-hidden p-6 max-lg:p-0 gap-6 min-h-0 h-full relative">
       {/* LEFT COLUMN: CHAT CONSOLE */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="flex-1 flex flex-col min-h-0 relative overflow-hidden rounded-3xl max-md:rounded-none shadow-[0_0_50px_rgba(0,0,0,0.5)] group"
+        className="flex-1 flex flex-col min-h-0 relative overflow-hidden rounded-3xl max-lg:rounded-none shadow-[0_0_50px_rgba(0,0,0,0.5)] group"
         style={{ backgroundImage: "url('/ChatbotBG.webp')", backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         {/* Dark translucent overlay */}
         <div className="absolute inset-0 bg-black/80 z-0 pointer-events-none" />
 
         {/* Chat Header */}
-        <div className="px-6 py-4 flex items-center justify-between sticky top-0 bg-black/40 backdrop-blur-xl z-10">
+        <div className="px-6 py-4 max-md:pt-8 max-md:pb-4 flex items-center justify-between sticky top-0 bg-black/40 backdrop-blur-xl z-20 border-b border-white/5">
           <div className="flex items-center gap-3">
             <Bot className="w-6 h-6 text-emerald-400" />
             <div>
@@ -283,7 +280,7 @@ export default function ChatbotPage() {
           </div>
           <button 
             onClick={() => setShowMobileHistory(true)}
-            className="md:hidden bg-zinc-800/80 text-zinc-300 p-2 rounded-full hover:bg-zinc-700 hover:text-white"
+            className="lg:hidden bg-zinc-800/80 text-zinc-300 p-2 rounded-full hover:bg-zinc-700 hover:text-white"
           >
             <span className="material-symbols-outlined text-[20px]">history</span>
           </button>
@@ -299,11 +296,11 @@ export default function ChatbotPage() {
           ) : messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto px-6 w-full gap-8">
               {/* Nice Starting New Chat Title */}
-              <div className="text-center space-y-3">
+              <div className="text-center space-y-3 mt-4">
                 <motion.h1 
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-4xl md:text-5xl font-extrabold tracking-tight font-clash text-center bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent"
+                  className="text-3xl md:text-5xl font-extrabold tracking-tight font-clash text-center bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent"
                 >
                   Hello, Operator.
                 </motion.h1>
@@ -350,7 +347,7 @@ export default function ChatbotPage() {
           ) : (
             <>
               {/* Chat Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 max-md:p-4 space-y-6 max-md:space-y-4 min-h-0 scroll-smooth no-scrollbar relative">
+              <div className="flex-1 overflow-y-auto p-6 max-lg:p-4 space-y-6 max-lg:space-y-4 min-h-0 scroll-smooth no-scrollbar relative">
                 <AnimatePresence initial={false}>
                   {/* Map over LIVE AI SDK messages instead of mocked store messages */}
                   {messages.map((msg: UIMessage, idx) => {
@@ -464,7 +461,7 @@ export default function ChatbotPage() {
               </div>
 
               {/* Input Bar */}
-              <div className="p-5 bg-gradient-to-t from-black via-black/80 to-transparent relative z-10 animate-fade-in">
+              <div className="p-5 max-md:px-4 max-md:pb-6 bg-gradient-to-t from-black via-black/80 to-transparent relative z-10 animate-fade-in">
                 {renderInputForm()}
               </div>
             </>
@@ -476,7 +473,7 @@ export default function ChatbotPage() {
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className={`w-80 flex flex-col gap-6 min-h-0 shrink-0 transition-all duration-300 ${showMobileHistory ? 'max-md:fixed max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:z-[60] max-md:bg-zinc-950 max-md:p-4 max-md:shadow-2xl' : 'max-md:hidden'}`}
+        className={`w-80 flex flex-col gap-6 min-h-0 shrink-0 transition-all duration-300 ${showMobileHistory ? 'max-lg:fixed max-lg:right-0 max-lg:top-0 max-lg:bottom-0 max-lg:z-[60] max-lg:bg-zinc-950 max-lg:p-4 max-lg:shadow-2xl' : 'max-lg:hidden'}`}
       >
         {/* History List Card */}
         <div className="flex-1 flex flex-col min-h-0 relative bg-zinc-900/50 md:bg-transparent rounded-2xl md:rounded-none">
@@ -492,7 +489,7 @@ export default function ChatbotPage() {
               </button>
               <button
                 onClick={() => setShowMobileHistory(false)}
-                className="md:hidden p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-full ml-1"
+                className="lg:hidden p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-full ml-1"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
