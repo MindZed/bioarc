@@ -221,7 +221,8 @@ export default function Dashboard() {
                   <button onClick={() => sendActionCommand('agitate')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Agitate (60s)</button>
                   <button onClick={() => sendActionCommand('clear_hazard')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Clear Hazard</button>
                   <button onClick={() => sendActionCommand('restart')} className="py-2.5 bg-surface-container hover:bg-surface-variant rounded-xl text-sm font-medium border border-outline-variant/50 transition-colors">Restart ESP32</button>
-                  <button onClick={() => sendActionCommand('emergency_stop')} className="py-2.5 bg-error/10 hover:bg-error/20 text-error rounded-xl text-sm font-bold border border-error/20 transition-colors">EMERGENCY STOP</button>
+                  <button onClick={() => sendActionCommand('demo_cycle')} className="py-2.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-xl text-sm font-bold border border-primary/30 transition-colors">Run Demo Cycle</button>
+                  <button onClick={() => sendActionCommand('emergency_stop')} className="py-2.5 bg-error/10 hover:bg-error/20 text-error rounded-xl text-sm font-bold border border-error/20 transition-colors col-span-2">EMERGENCY STOP</button>
                 </div>
               </div>
               
