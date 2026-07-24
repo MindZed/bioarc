@@ -161,6 +161,13 @@ export default function Dashboard() {
           ESP32 Offline - Displaying Past Data
         </div>
       )}
+
+      {espConnected && fsmCurrentState === 'HAZARD' && (
+        <div className="bg-error/10 text-error text-center py-1.5 text-[11px] font-bold uppercase tracking-widest border-b border-error/20 z-40 relative flex items-center justify-center gap-2 shadow-sm">
+          <span className="material-symbols-outlined text-[16px] animate-pulse">warning</span>
+          Hazard State Active — System Halted
+        </div>
+      )}
       
       {!isWsConnected && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md">
@@ -277,7 +284,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div>ESP32 Status: {espConnected ? 'Online' : 'Offline'}</div>
-          <div className={`${espConnected ? 'bg-primary/20 text-primary' : 'bg-error/20 text-error'} px-2 py-0.5 rounded-full`}>System State: {espConnected ? fsmCurrentState : 'OFFLINE'}</div>
+          <div className={`${!espConnected || fsmCurrentState === 'HAZARD' ? 'bg-error/20 text-error' : 'bg-primary/20 text-primary'} px-2 py-0.5 rounded-full`}>System State: {espConnected ? fsmCurrentState : 'OFFLINE'}</div>
         </div>
       </div>
 
